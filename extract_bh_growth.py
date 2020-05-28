@@ -17,7 +17,6 @@ def main():
     args = parser.parse_args()
 
     n_sims = len(args.sims)
-    n_snaps = len(args.snapshots)
     
     args.bh_fields = ['SubgridMasses']
                       
@@ -25,11 +24,14 @@ def main():
     if n_sims == 0:
         print("")
         set_trace()
-    
+
+    args.outfile = f'/cosma7/data/dp004/dc-bahe1/EXL/{args.outfile}'
+    print(args.outfile)
+        
     for isim in args.sims:
         process_sim(isim, args)
 
-        
+    
 def process_sim(isim, args):
     """Process one individual simulation"""
 
@@ -40,7 +42,10 @@ def process_sim(isim, args):
     print(f"Analysing simulation {wdir}...")
 
     bfile = wdir + 'black_hole_data.hdf5'
-
+    if not os.path.isfile(bfile):
+        print(f"Could not find BH data file for simulation {isim}.")
+        return
+        
     # Copy out the desired fields
     for field in args.bh_fields:
         data = hd.read_data(bfile, field)
@@ -48,7 +53,7 @@ def process_sim(isim, args):
             print(f"Could not load data set '{field}'!")
             set_trace()
 
-        hd.write_data(args.outfile, f'ID{isim}/{field}')
+        hd.write_data(args.outfile, f'ID{isim}/{field}', data)
 
     # Copy out metadata fields
     times = hd.read_data(bfile, 'Times')
