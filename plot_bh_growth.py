@@ -26,17 +26,15 @@ import matplotlib.pyplot as plt
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
 parser.add_argument('sim', type=int, help='Simulation index to analyse')
-parser.add_argument('id', type=int, help='Black hole ID to analyse')
-parser.add_argument('--num_snap', type=int, help='Maximum number of snapshots',
-                    default=2700)
+parser.add_argument('index', type=int, help='BH index to analyse')
+parser.add_argument('--id', type=int, help='Black hole ID to analyse')
 parser.add_argument('--mmax', type=float, help='Maximum log mass to display',
                     default=7.0)
-parser.add_argument('--reload', action='store_true', help='Reload data from files?')
 parser.add_argument('--width', type=float, help='Plot width in inch',
                     default=9.0)
 parser.add_argument('--linewidth', type=float, help='Plot linewidth',
                     default=0.2)
-parser.add_argument('--snapname', default='eagle')
+parser.add_argument('--catname', default='black_hole_data.hdf5')
 
 args = parser.parse_args()
 
@@ -61,269 +59,111 @@ plot_bcvel = True
 
 id_subj = args.id
 id_cen = None
-nsnap = args.num_snap
 
-msg = np.zeros((nsnap, 2)) - 1
-mdyn = np.zeros((nsnap, 2)) - 1
-macc = np.zeros((nsnap, 2)) - 1
-vbh = np.zeros((nsnap, 2)) - 1
-vgas = np.zeros((nsnap, 2)) - 1
-vcgas = np.zeros((nsnap, 2)) - 1
-cgas = np.zeros((nsnap, 2)) - 1
-cgasc = np.zeros((nsnap, 2)) - 1
-sgas = np.zeros((nsnap, 2)) - 1
-rhogas = np.zeros((nsnap, 2)) - 1
-times = np.zeros(nsnap) - 1
-num_steps = np.zeros((nsnap, 2), dtype=int) - 1
-num_repos = np.zeros((nsnap, 2), dtype=int) - 1
-num_repos_att = np.zeros((nsnap, 2), dtype=int) - 1
-num_swallows = np.zeros((nsnap, 2), dtype=int) - 1
-num_mergers = np.zeros((nsnap, 2), dtype=int) - 1
-fvisc = np.zeros((nsnap, 2)) - 1
+hdfile = wdir + args.catname
 
-hdfile = wdir + f'/bh_track_data_id{args.id}.hdf5'
+aexp = 1/(1+hd.read_data(hdfile, 'Redshifts'))
 
-if args.reload:
-    for isnap in range(nsnap):
+msg = np.log10(hd.read_data(hdfile, 'SubgridMasses') * 1e10)
+mdyn = np.log10(hd.read_data(hdfile, 'DynamicalMasses') * 1e10)
+macc = np.log10(hd.read_data(hdfile, 'AccretionRates') * 1.023045e-02)
+vbh = np.log10(hd.read_data(hdfile, 'Velocities'))
+vgas = hd.read_data(hdfile, 'GasRelativeVelocities')
+vgas = np.log10(np.linalg.norm(vgas, axis=1))
+vcgas = hd.read_data(hdfile, 'GasCircularVelocities')
+vcgas = np.log10(np.linalg.norm(vcgas, axis=1))
+cgas = np.log10(hd.read_data(hdfile, 'GasSoundSpeeds') / aexp)
+sgas = hd.read_data(hdfile, 'GasVelocityDispersions')
+if sgas is not None:
+    sgas = np.log10(sgas)
+rhogas = np.log10(hd.read_data(hdfile, 'GasDensities'))
+num_steps = hd.read_data(hdfile, 'NumberOfTimeSteps')
+num_repos = hd.read_data(hdfile, 'NumberOfRepositionings')
+num_repos_att = hd.read_data(hdfile, 'NumberOfRepositionAttempts')
+num_swallows = hd.read_data(hdfile, 'NumberOfSwallows')
+num_mergers = hd.read_data(hdfile, 'NumberOfMergers')
+fvisc = np.log10(hd.read_data(hdfile, 'ViscosityFactors'))
 
-        print("")
-        print(f"Snapshot {isnap}")
-        print("")
+particle_ids = hd.read_data(hdfile, 'ParticleIDs')
+times = hd.read_data(hdfile, 'Times')
 
-        datafile = wdir + f'{args.snapname}_{isnap:04d}.hdf5'
-        if not os.path.isfile(datafile):
-            break
-    
-        time = hy.hdf5.read_attribute(datafile, 'Header', 'Time')[0]
-        utime = hy.hdf5.read_attribute(datafile, 'Units', 'Unit time in cgs (U_t)')[0]
-        utime /= hy.units.GIGAYEAR
-        time *= utime
+nsnap = len(times)
 
-        times[isnap] = time
-    
-        aexp_factor = hy.hdf5.read_attribute(datafile, 'Header', 'Scale-factor')[0]
+snapfile = wdir + 'eagle_0018.hdf5'
+code_branch = hd.read_attribute(snapfile, 'Code', 'Git Branch')
+code_date = hd.read_attribute(snapfile, 'Code', 'Git Date')
+code_rev = hd.read_attribute(snapfile, 'Code', 'Git Revision')
+sim_name = hd.read_attribute(snapfile, 'Header', 'RunName')
 
-        ulen = hy.hdf5.read_attribute(datafile, 'Units', 'Unit length in cgs (U_L)')[0]
-        ulen *= hy.units.CM
-        ulen /= hy.units.MEGAPARSEC
-    
-        if isnap == 0:
-            code_branch = hy.hdf5.read_attribute(datafile, 'Code', 'Git Branch')
-            code_date = hy.hdf5.read_attribute(datafile, 'Code', 'Git Date')
-            code_rev  = hy.hdf5.read_attribute(datafile, 'Code', 'Git Revision')
-            sim_name = hy.hdf5.read_attribute(datafile, 'Header', 'RunName')
-            
-        bids = hy.hdf5.read_data(datafile, 'PartType5/ParticleIDs')
-        if bids is None:
-            continue
-
-        bpos = hy.hdf5.read_data(datafile, 'PartType5/Coordinates') * ulen * 1e3
-        bvel = hy.hdf5.read_data(datafile, 'PartType5/Velocities')
-        bsgmass = hy.hdf5.read_data(datafile, 'PartType5/SubgridMasses') * 1e10
-        bptmass = hy.hdf5.read_data(datafile, 'PartType5/DynamicalMasses') * 1e10
-        bmacc = hy.hdf5.read_data(datafile, 'PartType5/AccretionRates') * 1.023045e-02
-        bvgas = hy.hdf5.read_data(datafile, 'PartType5/GasRelativeVelocities')
-        bvcgas = hy.hdf5.read_data(datafile, 'PartType5/GasCircularVelocities')
-        bcgas = hy.hdf5.read_data(datafile, 'PartType5/GasSoundSpeeds') * aexp_factor
-        bcgasc = hy.hdf5.read_data(datafile, 'PartType5/GasSoundSpeeds') / aexp_factor
-        bsgas = hy.hdf5.read_data(datafile, 'PartType5/GasVelocityDispersions')
-        brhogas = hy.hdf5.read_data(datafile, 'PartType5/GasDensities')
-        bsteps = hy.hdf5.read_data(datafile, 'PartType5/NumberOfTimeSteps')
-        bswallow = hy.hdf5.read_data(datafile, 'PartType5/NumberOfSwallows')
-        bmerger = hy.hdf5.read_data(datafile, 'PartType5/NumberOfMergers')
-        brepos = hy.hdf5.read_data(datafile, 'PartType5/NumberOfRepositionings')
-        breposatt = hy.hdf5.read_data(datafile, 'PartType5/NumberOfRepositionAttempts')  
-        bfvisc = hy.hdf5.read_data(datafile, 'PartType5/ViscosityFactors')  
-        if bfvisc is None:
-            has_fvisc = False
-        else:
-            has_fvisc = True
-
-            
-        ind_subj = np.nonzero(bids == id_subj)[0]
-        if len(ind_subj) > 0:
-            ind_subj = ind_subj[0]
-        else:
-            print("Subject BH not found...")
-            ind_subj = None
-
-        ind_cen = np.nonzero(bids == id_cen)[0]
-        if len(ind_cen) > 0:
-            ind_cen = ind_cen[0]
-        else:
-            print("Central BH not found...")
-            ind_cen = None
-
-        if ind_subj is not None:
-            print(f"BH log M_sg [subj] = {np.log10(bsgmass[ind_subj])}")
-            print(f"BH accr [subj] = {np.log10(bmacc[ind_subj])}")
-
-            msg[isnap, 0] = np.log10(bsgmass[ind_subj])
-            mdyn[isnap, 0] = np.log10(bptmass[ind_subj])
-            macc[isnap, 0] = np.log10(bmacc[ind_subj])
-            vbh[isnap, 0] = np.log10(np.linalg.norm(bvel[ind_subj, :]))
-            vgas[isnap, 0] = np.log10(np.linalg.norm(bvgas[ind_subj, :]))
-            vcgas[isnap, 0] = np.log10(np.linalg.norm(bvcgas[ind_subj, :]))
-            cgas[isnap, 0] = np.log10(bcgas[ind_subj])
-            cgasc[isnap, 0] = np.log10(bcgasc[ind_subj])
-            if bsgas is not None:
-                sgas[isnap, 0] = np.log10(bsgas[ind_subj])
-                has_veldisp = True
-            else:
-                has_veldisp = False
-            rhogas[isnap, 0] = np.log10(brhogas[ind_subj])
-            num_steps[isnap, 0] = bsteps[ind_subj]
-            num_repos[isnap, 0] = brepos[ind_subj]
-            num_swallows[isnap, 0] = bswallow[ind_subj]
-            num_repos_att[isnap, 0] = breposatt[ind_subj]
-            num_mergers[isnap, 0] = bmerger[ind_subj]
-            if has_fvisc:
-                fvisc[isnap, 0] = bfvisc[ind_subj]
-            
-        if ind_cen is not None:
-            print(f"BH log M_sg [cen] = {np.log10(bsgmass[ind_cen])}")
-            print(f"BH accr [cen] = {np.log10(bmacc[ind_cen])}")
-            if bsgas is not None:
-                print(f"BH vdisp [cen] = {np.log10(bsgas[ind_cen])}")
-
-            msg[isnap, 1] = np.log10(bsgmass[ind_cen])
-            mdyn[isnap, 1] = np.log10(bptmass[ind_cen])
-            macc[isnap, 1] = np.log10(bmacc[ind_cen])
-            vbh[isnap, 1] = np.log10(np.linalg.norm(bvel[ind_cen, :]))
-            vgas[isnap, 1] = np.log10(np.linalg.norm(bvgas[ind_cen, :]))
-            vcgas[isnap, 1] = np.log10(np.linalg.norm(bvcgas[ind_cen, :]))
-            cgas[isnap, 1] = np.log10(bcgas[ind_cen])
-            cgasc[isnap, 1] = np.log10(bcgasc[ind_cen])
-            if bsgas is not None:
-                sgas[isnap, 1] = np.log10(bsgas[ind_cen])
-            rhogas[isnap, 1] = np.log10(brhogas[ind_cen])
-
-
-    hd.write_data(hdfile, 'SubgridMass', msg)
-    hd.write_data(hdfile, 'DynamicalMass', mdyn)
-    hd.write_data(hdfile, 'AccretionRate', macc)
-    hd.write_data(hdfile, 'BHVelocity', vbh)
-    hd.write_data(hdfile, 'GasVelocity', vgas)
-    hd.write_data(hdfile, 'GasCircularVelocity', vcgas)
-    hd.write_data(hdfile, 'GasSoundSpeed', cgas)
-    hd.write_data(hdfile, 'GasSoundSpeedCorr', cgasc)
-    hd.write_data(hdfile, 'GasVelocityDispersion', sgas)
-    hd.write_data(hdfile, 'GasDensity', rhogas)
-    hd.write_data(hdfile, 'Times', times)
-    hd.write_data(hdfile, 'NumSteps', num_steps)
-    hd.write_data(hdfile, 'NumRepos', num_repos)
-    hd.write_data(hdfile, 'NumReposAttempt', num_repos_att)
-    hd.write_data(hdfile, 'NumSwallows', num_swallows)
-    hd.write_data(hdfile, 'NumMergers', num_mergers)
-    hd.write_data(hdfile, 'ViscosityFactor', fvisc)
-    
-    hd.write_attribute(hdfile, 'Header', 'CodeBranch', code_branch)
-    hd.write_attribute(hdfile, 'Header', 'CodeDate', code_date)
-    hd.write_attribute(hdfile, 'Header', 'CodeRev', code_rev)
-    hd.write_attribute(hdfile, 'Header', 'HasVelDisp', has_veldisp)
-    hd.write_attribute(hdfile, 'Header', 'HasViscosity', has_fvisc)
-    hd.write_attribute(hdfile, 'Header', 'SimName', sim_name)
-    
+if args.index < 0:
+    args.index = np.nonzero(particle_ids == id_subj)[0]
+    if len(args.index) != 1:
+        print("Could not find subject BH...")
+        set_trace()
+    args.index = args.index[0]
+        
 else:
+    args.id = particle_ids[args.index]
 
-    msg = hd.read_data(hdfile, 'SubgridMass')
-    mdyn = hd.read_data(hdfile, 'DynamicalMass')
-    macc = hd.read_data(hdfile, 'AccretionRate')
-    vbh = hd.read_data(hdfile, 'BHVelocity')
-    vgas = hd.read_data(hdfile, 'GasVelocity')
-    vcgas = hd.read_data(hdfile, 'GasCircularVelocity')
-    cgas = hd.read_data(hdfile, 'GasSoundSpeed')
-    cgasc = hd.read_data(hdfile, 'GasSoundSpeedCorr')
-    sgas = hd.read_data(hdfile, 'GasVelocityDispersion')
-    rhogas = hd.read_data(hdfile, 'GasDensity')
-    times = hd.read_data(hdfile, 'Times')
-    num_steps = hd.read_data(hdfile, 'NumSteps')
-    num_repos = hd.read_data(hdfile, 'NumRepos')
-    num_repos_att = hd.read_data(hdfile, 'NumReposAttempt')
-    num_swallows = hd.read_data(hdfile, 'NumSwallows')
-    num_mergers = hd.read_data(hdfile, 'NumMergers')
-    fvisc = hd.read_data(hdfile, 'ViscosityFactor')
-    
-    code_branch = hd.read_attribute(hdfile, 'Header', 'CodeBranch')
-    code_date = hd.read_attribute(hdfile, 'Header', 'CodeDate')
-    code_rev = hd.read_attribute(hdfile, 'Header', 'CodeRev')
-    has_veldisp = hd.read_attribute(hdfile, 'Header', 'HasVelDisp')
-    has_fvisc = hd.read_attribute(hdfile, 'Header', 'HasViscosity')
-    sim_name = hd.read_attribute(hdfile, 'Header', 'SimName')
-    
 fig = plt.figure(figsize=(args.width, 15))
-
-ind_good_cen = np.nonzero((times >= 0) & (msg[:, 1] > 0))[0]
-ind_good_sat = np.nonzero((times >= 0) & (msg[:, 0] > 0))[0]
-ind_good = np.nonzero((times >= 0))[0]
-
-# Find times of swallows
-ind_sw_cen = np.nonzero((num_swallows[1:, 1] > num_swallows[:-1, 1]) &
-                        (num_swallows[1:, 1] > 0))[0]
-if len(ind_sw_cen) > 0:
-    times_swallow_cen = times[ind_sw_cen]
-else:
-    times_swallow_cen = None
-
-ind_repos_cen = np.nonzero(num_repos[:, 1] > 0)[0]
-if len(ind_repos_cen) > 0:
-    time_repos_cen = times[ind_repos_cen[0]]
-else:
-    time_repos_cen = None
-
-ind_sw_sat = np.nonzero((num_swallows[1:, 0] > num_swallows[:-1, 0]) &
-                        (num_swallows[1:, 0] > 0))[0]
-ind_mg_sat = np.nonzero((num_mergers[1:, 0] > num_mergers[:-1, 0]) &
-                        (num_mergers[1:, 0] > 0))[0]
-
-print(f"Total of {len(ind_sw_sat)} gas swallows") 
-if len(ind_sw_sat) > 0:
-    times_swallow_sat = times[ind_sw_sat]
-else:
-    times_swallow_sat = None
-
-print(f"Total of {len(ind_mg_sat)} BH mergers") 
-if len(ind_mg_sat) > 0:
-    times_merger_sat = times[ind_mg_sat]
-else:
-    times_merger_sat = None
     
-ind_repos_sat = np.nonzero(num_repos[:, 0] > 0)[0]
-if len(ind_repos_sat) > 0:
-    time_repos_sat = times[ind_repos_sat[0]]
+ind_good = np.nonzero((times >= 0) & (msg[args.index, :] != np.nan) & (msg[args.index, :] > 0))[0]
+ind_good_all = np.nonzero((times >= 0))[0]
+
+
+# Find times of swallows, mergers, and first repositioning
+ind_sw = np.nonzero((num_swallows[args.index, 1:] > num_swallows[args.index, :-1]) &
+                    (num_swallows[args.index, 1:] > 0))[0]
+print(f"Total of {len(ind_sw)} gas swallows") 
+if len(ind_sw) > 0:
+    times_swallow = times[ind_sw]
 else:
-    time_repos_sat = None
+    times_swallow = None
+
+ind_repos = np.nonzero(num_repos[args.index, :] > 0)[0]
+if len(ind_repos) > 0:
+    time_repos = times[ind_repos[0]]
+else:
+    time_repos = None
+
+ind_mg = np.nonzero((num_mergers[args.index, 1:] > num_mergers[args.index, :-1]) &
+                    (num_mergers[args.index, 1:] > 0))[0]
+
+print(f"Total of {len(ind_mg)} BH mergers") 
+if len(ind_mg) > 0:
+    times_merger = times[ind_mg]
+else:
+    times_merger = None
+    
 
 def draw_time_lines():
     """Plot lines of swallows and reposition times"""
 
-    if time_repos_cen is not None:
-        plt.plot([time_repos_cen, time_repos_cen], yr, color = 'red', alpha = 0.2, zorder=-100)
-    if time_repos_sat is not None:
-        plt.plot([time_repos_sat, time_repos_sat], yr, color = 'black', alpha = 0.2, zorder=-100)
+    if time_repos is not None:
+        plt.plot([time_repos, time_repos], yr, color = 'black', alpha = 0.2, zorder=-100)
 
-    if times_merger_sat is not None:
-        for itime in times_merger_sat:
+    if times_merger is not None:
+        for itime in times_merger:
             plt.plot([itime, itime], yr, color='royalblue', alpha=0.2, zorder=-100, linestyle=':')
-        
-    if times_swallow_cen is not None:
-        for itime in times_swallow_cen:
-            plt.plot([itime, itime], yr, color='red', alpha=0.2, zorder=-100, linestyle='--')
-    if times_swallow_sat is not None:
-        for itime in times_swallow_sat:
+
+    if times_swallow is not None:
+        for itime in times_swallow:
             plt.plot([itime, itime], yr, color='black', alpha=0.2, zorder=-100, linestyle='--')
 
+# ================================================================================
+# ==============  Ok, now draw the evolution lines ===============================
+# ================================================================================
+            
 trange = [np.min(times[ind_good]), np.max(times[ind_good])]
 print("trange: ", trange)
+
+# -------------------- Masses -------------------
 
 ax1 = plt.subplot(6, 1, 1)
 yr = [4.8, args.mmax]
 
-plt.plot(times[ind_good_sat], msg[ind_good_sat, 0], color = 'black')
-plt.plot(times[ind_good_cen], msg[ind_good_cen, 1], color = 'red')
-
-plt.plot(times[ind_good_sat], mdyn[ind_good_sat, 0], color = 'black', linestyle=':')
-plt.plot(times[ind_good_cen], mdyn[ind_good_cen, 1], color = 'red', linestyle=':')
+plt.plot(times[ind_good], msg[args.index, ind_good], color = 'black')
+plt.plot(times[ind_good], mdyn[args.index, ind_good], color = 'black', linestyle=':')
 
 draw_time_lines()
 
@@ -332,6 +172,7 @@ ax1.set_ylim(yr)
 ax1.set_ylabel(r'BH masses (log $m$ [M$_\odot$])')
 ax1.axes.get_xaxis().set_visible(False)
 
+# Legend
 plt.plot(trange[0]+(trange[1]-trange[0])*np.array([0.03, 0.1]), yr[1]-(yr[1]-yr[0])*np.array([0.06, 0.06]),
          linestyle = ':', color='black')
 plt.plot(trange[0]+(trange[1]-trange[0])*np.array([0.03, 0.1]), yr[1]-(yr[1]-yr[0])*np.array([0.13, 0.13]),
@@ -342,44 +183,47 @@ plt.text(trange[0]+(trange[1]-trange[0])*0.12, yr[1]-(yr[1]-yr[0])*0.03,
 plt.text(trange[0]+(trange[1]-trange[0])*0.12, yr[1]-(yr[1]-yr[0])*0.1,
          f'Subgrid Mass', va='top', ha='left', alpha=1.0)
 
-
+# Code info
 plt.text(trange[1]-(trange[1]-trange[0])*0.02, yr[0]+(yr[1]-yr[0])*0.08,
          f"{code_branch} ({code_rev})", fontsize=8, va='bottom', ha='right')
 plt.text(trange[1]-(trange[1]-trange[0])*0.02, yr[0]+(yr[1]-yr[0])*0.02,
          f"[{code_date}]", fontsize=8, va='bottom', ha='right')
 #plt.text(trange[0]+(trange[1]-trange[0])*0.02, 6.5, code_rev, fontsize=8)
 
+# Plot redshifts on top
 ax1b = ax1.twiny()
 zreds = np.array([10.0, 5.0, 4.0, 3.0, 2.5, 2.0, 1.5, 1.0, 0.7, 0.5, 0.2, 0.1, 0.0])
 zredtimes = np.array([cosmo.age(_z).value for _z in zreds])
-ind_good = np.nonzero((zredtimes >= trange[0]) &
-                      (zredtimes <= trange[1]))[0]
+ind_good_z = np.nonzero((zredtimes >= trange[0]) &
+                        (zredtimes <= trange[1]))[0]
 
-ax1b.set_xticks(zredtimes[ind_good])
-zreds_good = zreds[ind_good]
+ax1b.set_xticks(zredtimes[ind_good_z])
+zreds_good = zreds[ind_good_z]
 ax1b.set_xticklabels([f'{_zt:.1f}' for _zt in zreds_good])
 ax1b.set_xlabel('Redshift')
 ax1b.set_xlim(trange)
 ax1b.set_ylim(yr)
 
+# ----------------- Accretion rates --------------------------------
+
 ax2 = plt.subplot(6, 1, 2)
 yr = [-8.9, 0]
-plt.plot(times[ind_good_sat], macc[ind_good_sat, 0], color = 'black')
-plt.plot(times[ind_good_cen], macc[ind_good_cen, 1], color = 'red')
+
+plt.plot(times[ind_good], macc[args.index, ind_good], color = 'black')
+draw_time_lines()
+
 ax2.set_xlim(trange)
 ax2.set_ylim(yr)
 ax2.set_ylabel('Accretion rates' '\n' r'(log $\dot{m}$ [M$_\odot$/yr])')
 ax2.axes.get_xaxis().set_visible(False)
 
 plt.text(trange[0]+(trange[1]-trange[0])*0.03, yr[1]-(yr[1]-yr[0])*0.03,
-         f'ID = {id_subj}', va='top', ha='left')
+         f'BH {args.index} [ID = {args.id}]', va='top', ha='left')
 
-draw_time_lines()
-
-if has_fvisc:
+if fvisc is not None:
     print("FVISC")
     ax2b = ax2.twinx()
-    plt.plot(times[ind_good_sat], np.log10(fvisc[ind_good_sat, 0]), color = 'purple', linestyle=':')
+    plt.plot(times[ind_good], fvisc[args.index, ind_good], color = 'purple', linestyle=':')
     ax2b.set_xlim(trange)
     ax2b.set_ylim([-4, 0.05])
     ax2b.set_ylabel('log Viscosity factor')
@@ -387,34 +231,32 @@ if has_fvisc:
     ax2b.yaxis.label.set_color('purple')
     ax2b.tick_params(axis='y', colors='purple')
 
+# ----------------- Speeds ---------------------------
+    
 ax3 = plt.subplot(6, 1, 3)
-plt.plot(times[ind_good_sat], vgas[ind_good_sat, 0], color='black')
-plt.plot(times[ind_good_cen], vgas[ind_good_cen, 1], color='red')
+yr = [-0.9, 3.0]
+
+plt.plot(times[ind_good], vgas[args.index, ind_good], color='black')
+plt.plot(times[ind_good], cgas[args.index, ind_good], color='goldenrod', linestyle=':')
 
 if plot_bvel:
-    plt.plot(times[ind_good_sat], vbh[ind_good_sat, 0], color='black', linestyle = '--')
-    plt.plot(times[ind_good_cen], vbh[ind_good_cen, 1], color='red', linestyle = '--')
+    plt.plot(times[ind_good], vbh[args.index, ind_good], color='black', linestyle = '--')
 if plot_bcvel:
-    plt.plot(times[ind_good_sat], vcgas[ind_good_sat, 0], color='cornflowerblue', linestyle = '--')
-    plt.plot(times[ind_good_cen], vcgas[ind_good_cen, 1], color='red', linestyle = '--')
-elif has_veldisp:
-    plt.plot(times[ind_good_sat], sgas[ind_good_sat, 0], color='black', linestyle = '--')
-    plt.plot(times[ind_good_cen], sgas[ind_good_cen, 1], color='red', linestyle = '--')
+    plt.plot(times[ind_good], vcgas[args.index, ind_good], color='cornflowerblue', linestyle = '--')
+elif sgas is not None:
+    plt.plot(times[ind_good], sgas[args.index, ind_good], color='cornflowerblue', linestyle = '--')
 
-
-plt.plot(times[ind_good_sat], cgasc[ind_good_sat, 0], color='goldenrod', linestyle=':')
-#plt.plot(times[ind_good_sat], cgasc[ind_good_sat, 0], color='seagreen', linestyle=':')
-plt.plot(times[ind_good_cen], cgasc[ind_good_cen, 1], color='red', linestyle=':')
-
-yr = [-0.9, 3.0]
+draw_time_lines()
+    
 ax3.set_xlim(trange)
 ax3.set_ylim(yr)
-#ax3.set_xlabel('Time [Myr]')
 ax3.set_ylabel(r'Gas speeds (log $v$ [km/s])')
+ax3.axes.get_xaxis().set_visible(False)
 
+# Legend
 plt.plot(trange[1]-(trange[1]-trange[0])*np.array([0.03, 0.1]), yr[0]+(yr[1]-yr[0])*np.array([0.06, 0.06]),
          linestyle = ':', color='goldenrod')
-if has_veldisp or plot_bvel or plot_bcvel:
+if sgas is not None  or plot_bvel or plot_bcvel:
     plt.plot(trange[1]-(trange[1]-trange[0])*np.array([0.03, 0.1]), yr[0]+(yr[1]-yr[0])*np.array([0.13, 0.13]),
          linestyle = '--', color='cornflowerblue')
 plt.plot(trange[1]-(trange[1]-trange[0])*np.array([0.03, 0.1]), yr[0]+(yr[1]-yr[0])*np.array([0.2, 0.2]),
@@ -427,45 +269,50 @@ if plot_bvel:
 if plot_bcvel:
     plt.text(trange[1]-(trange[1]-trange[0])*0.12, yr[0]+(yr[1]-yr[0])*0.1,
          f'Circular speed', va='bottom', ha='right', alpha=0.75)
-elif has_veldisp:
+elif sgas is not None:
     plt.text(trange[1]-(trange[1]-trange[0])*0.12, yr[0]+(yr[1]-yr[0])*0.1,
          f'Velocity dispersion', va='bottom', ha='right', alpha=0.75)
 
 plt.text(trange[1]-(trange[1]-trange[0])*0.12, yr[0]+(yr[1]-yr[0])*0.17,
          f'Bulk speed', va='bottom', ha='right', alpha=1.0)
 
-draw_time_lines()
-
+# Simulation name
 plt.text(trange[0]+(trange[1]-trange[0])*0.03, yr[1] - (yr[1]-yr[0])*0.03,
          sim_name, va='top', ha='left', alpha=1.0)
 
-ax3.axes.get_xaxis().set_visible(False)
+# ----------------------------- Density ----------------------------------------
 
 ax4 = plt.subplot(6, 1, 4)
-plt.plot(times[ind_good_sat], rhogas[ind_good_sat, 0], color='black')
-plt.plot(times[ind_good_cen], rhogas[ind_good_cen, 1], color='red')
-
 yr = [4.0, 9.0]
+
+plt.plot(times[ind_good], rhogas[args.index, ind_good], color='black')
+
+draw_time_lines()
+
 ax4.set_xlim(trange)
 ax4.set_ylim(yr)
 ax4.set_xlabel('Time [Myr]')
 ax4.set_ylabel(r'Gas density (log)')
+ax4.axes.get_xaxis().set_visible(False)
+
+# ---------------------------- Repositioning -----------------------------------
+
+ax5 = plt.subplot(6, 1, 5)
+yr = [0, np.max(num_repos_att[args.index, ind_good])*1.05]
+
+plt.plot(times[ind_good], num_repos[args.index, ind_good], color='black')
+plt.plot(times[ind_good], num_repos_att[args.index, ind_good], color='black', linestyle=':')
+print(f"Total of {num_repos[args.index, ind_good[-1]]} repositionings") 
 
 draw_time_lines()
 
-ax4.axes.get_xaxis().set_visible(False)
-
-ax5 = plt.subplot(6, 1, 5)
-plt.plot(times[ind_good_sat], num_repos[ind_good_sat, 0], color='black')
-plt.plot(times[ind_good_sat], num_repos_att[ind_good_sat, 0], color='black', linestyle=':')
-
-yr = [0, max(np.max(num_repos), np.max(num_repos_att))]
 ax5.set_xlim(trange)
 ax5.set_ylim(yr)
 ax5.set_xlabel('Time [Myr]')
 ax5.set_ylabel(r'Reposition numbers')
-print(f"Total of {num_repos[ind_good_sat[-1], 0]} repositionings") 
+ax5.axes.get_xaxis().set_visible(False)
 
+# Legend
 plt.plot(trange[1]-(trange[1]-trange[0])*np.array([0.03, 0.1]), yr[0]+(yr[1]-yr[0])*np.array([0.06, 0.06]),
          linestyle = '-', color='black')
 plt.plot(trange[1]-(trange[1]-trange[0])*np.array([0.03, 0.1]), yr[0]+(yr[1]-yr[0])*np.array([0.13, 0.13]),
@@ -476,24 +323,34 @@ plt.text(trange[1]-(trange[1]-trange[0])*0.12, yr[0]+(yr[1]-yr[0])*0.03,
 plt.text(trange[1]-(trange[1]-trange[0])*0.12, yr[0]+(yr[1]-yr[0])*0.1,
          f'Attempted repositionings', va='bottom', ha='right', alpha=0.5)
 
-draw_time_lines()
-ax5.axes.get_xaxis().set_visible(False)
+# ------------------------- Repositioning fraction ------------------------
 
 ax6 = plt.subplot(6, 1, 6)
 
-start_ind_sat = np.clip(np.arange(nsnap)-5, ind_good_sat[0], ind_good_sat[-1])
-end_ind_sat = np.clip(np.arange(nsnap)+5, ind_good_sat[0], ind_good_sat[-1])
-delta_steps_sat = num_steps[end_ind_sat, 0] - num_steps[start_ind_sat, 0]
-delta_repos_sat = num_repos[end_ind_sat, 0] - num_repos[start_ind_sat, 0]
-delta_repos_att_sat = num_repos_att[end_ind_sat, 0] - num_repos_att[start_ind_sat, 0]
-frac_repos_sat = delta_repos_sat/delta_steps_sat
-frac_repos_att_sat = delta_repos_att_sat/delta_steps_sat
+# Here, we can't set the axis range yet, need to compute the plotting quantity first
 
-plt.plot(times[ind_good_sat], frac_repos_sat[ind_good_sat], color='black')
-plt.plot(times[ind_good_sat], frac_repos_att_sat[ind_good_sat], color='black', linestyle=':')
+# For each point in time, find the index range from (relative) -5 to +5
+# (clipped to the very first and last output)
+start_ind = np.clip(np.arange(nsnap)-5, ind_good[0], ind_good[-1])
+end_ind = np.clip(np.arange(nsnap)+5, ind_good[0], ind_good[-1])
 
-yr = [0, min(max(np.max(frac_repos_sat[ind_good_sat]),
-                 np.max(frac_repos_att_sat[ind_good_sat]))*1.01, 1)]
+# Work out the fraction of repositions and reposition attempts in
+# these ranges of outputs
+delta_steps = num_steps[args.index, end_ind] - num_steps[args.index, start_ind]
+delta_repos = num_repos[args.index, end_ind] - num_repos[args.index, start_ind]
+delta_repos_att = num_repos_att[args.index, end_ind] - num_repos_att[args.index, start_ind]
+frac_repos = delta_repos / delta_steps
+frac_repos_att = delta_repos_att / delta_steps
+
+# Plot the fractions as a function of time
+plt.plot(times[ind_good], frac_repos[ind_good], color='black')
+plt.plot(times[ind_good], frac_repos_att[ind_good], color='black', linestyle=':')
+
+yr = [0, min(max(np.max(frac_repos[ind_good]),
+                 np.max(frac_repos_att[ind_good]))*1.01, 1)]
+
+draw_time_lines()
+
 ax6.set_xlim(trange)
 ax6.set_ylim(yr)
 ax6.set_xlabel('Time [Gyr]')
@@ -510,12 +367,13 @@ plt.text(trange[0]+(trange[1]-trange[0])*0.12, yr[1]-(yr[1]-yr[0])*0.1,
          f'Attempted repositionings', va='top', ha='left', alpha=0.5)
 
 
-draw_time_lines()
-
-plt.subplots_adjust(left=0.2/(args.width/9), right=max(0.93/(args.width/9), 0.93), bottom=0.05, top=0.95, hspace=0, wspace=0)
+plt.subplots_adjust(left=0.2/(args.width/9),
+                    right=max(0.93/(args.width/9), 0.93),
+                    bottom=0.05, top=0.95, hspace=0, wspace=0)
 
 plt.show
-plt.savefig(f'evolution_ID{args.sim}_BH{args.id}.pdf', dpi=200)
+plt.savefig(f'evolution_ID{args.sim}_BH{args.index}.pdf', dpi=200)
+
 
 
 
