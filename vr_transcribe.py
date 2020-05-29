@@ -18,7 +18,9 @@ if len(dirs) != 1:
     print(f"Could not unambiguously find directory for simulation {args.sim}!")
     set_trace()
 vrfile = dirs[0] + f'vr/halos_{args.snapshot:04d}.properties'
-print(f"Analysing output file {datafile}...")
+print(f"Analysing output file {vrfile}...")
+
+outfile = dirs[0] + f'vr_{args.snapshot:04d}.hdf5'
 
 # Define translation table for 'simple' data sets...
 # List of tuples, each with structure: [VR_name] || [out_name] || [comment] || conversion factor
@@ -27,7 +29,7 @@ descr_sfr = 'Star formation rates in M_sun / yr'
 descr_mass = 'Mass in M_sun'
 descr_zmet = 'Metal mass fractions'
 descr_npart = 'Number of particles'
-descr_rhalfmass = 'Half mass radius in ???'
+descr_halfmass = 'Half mass radius in ???'
 descr_veldisp = '1D velocity dispersion in km/s'
 descr_efrac = ''
 descr_ekin = 'Energy'
@@ -53,11 +55,11 @@ conv_sfr = 1.023045e-02
 
 type_in = {
 	'total': '',
-	'bh': 'bh',
-	'gas': 'gas',
-	'gas_nsf': 'gas_nsf',
-	'gas_sf': 'gas_sf',
-	'star': 'star',
+	'bh': '_bh',
+	'gas': '_gas',
+	'gas_nsf': '_gas_nsf',
+	'gas_sf': '_gas_sf',
+	'star': '_star',
 }
 
 type_out = {
@@ -78,7 +80,7 @@ list_apertures = [
 	('mass', 'Masses', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'], True),
 	('mass_bh', 'Masses/BH_Dynamical', descr_mass, 1.0, None, False),
 	('npart', 'ParticleNumbers', descr_npart, 1, None, True),
-	('rhalfmass', 'HalfMassRadii', descr_rhalfmass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'], True),
+	('rhalfmass', 'HalfMassRadii', descr_halfmass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'], True),
 	('veldisp', 'VelocityDispersions', descr_veldisp, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'], True)
 ]
 
@@ -88,7 +90,7 @@ list_simple = [
 	('Epot', 'PotentialEnergies', descr_epot, 1.0, None),
 	('ID', 'HaloIDs', descr_id, 1, None),
 	('ID_mbp', 'ParticleIDs/MostBound', descr_idp, 1, None),
-	('ID_minpot', 'ParticleIDs/MinimumPotential', descr_idpt, 1, None),
+	('ID_minpot', 'ParticleIDs/MinimumPotential', descr_idp, 1, None),
 	('Krot', 'RotationalKappas', descr_kapparot, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
 	('M', 'Masses', descr_mass, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
 	('M_bh', 'Masses/BH_Dynamical', descr_mass, 1.0, None),
@@ -114,7 +116,7 @@ list_simple = [
 	('R_200mean', 'Radii/R200mean_All', descr_rad, 1.0, None),
 	('R_200mean_excl', 'Radii/R200mean_Halo', descr_rad, 1.0, None),
 	('R_BN98', 'Radii/BN98_All', descr_rad, 1.0, None),
-	('R_BN98_excl', 'Radii/BN98_Halo', descr_rad, 1.0, None)
+	('R_BN98_excl', 'Radii/BN98_Halo', descr_rad, 1.0, None),
 	('R_HalfMass', 'Radii/HalfMass', descr_halfmass, 1.0, ['total', 'gas', 'gas_sf', 'gas_nsf', 'star']),
 	('R_size', 'HaloExtent', descr_rad, 1.0, None),
 	('Rmax', 'Radii/RVmax', descr_rad, 1.0, None),
@@ -182,8 +184,9 @@ for ikey in list_simple:
 
 	else:
 		for itype in ikey[4]:
-			data = read_data(vrfile, ikey[0] + '_' + type_in[itype], require=True)
-			write_data(outfile, ikey[1] + '/' type_out[ikey], data*ikey[3], comment=ikey[2])
+            set_trace()
+            data = read_data(vrfile, ikey[0] + type_in[itype], require=True)
+            write_data(outfile, ikey[1] + '/' + type_out[ikey], data*ikey[3], comment=ikey[2])
 
 for ikey in list_apertures:
 	for iap in aperture_list:
