@@ -72,6 +72,7 @@ type_out = {
 }
 
 aperture_list = [100, 50, 30, 10, 5]
+dimsymbols = ['x', 'y', 'z']
 
 list_apertures = [
     ('SFR_gas', 'SFR', descr_sfr, conv_sfr, None, True),
@@ -177,6 +178,8 @@ list_3d3d_array = [
 
 # Actually transcribe data...
 
+nhaloes = read_data(vrfile, 'Total_num_of_groups')[0]
+
 for ikey in list_simple:
 
     if len(ikey) < 5: set_trace()
@@ -225,6 +228,34 @@ for ikey in list_apertures:
                 write_data(outfile, outname, data*ikey[3], comment=ikey[2])
 
 
+# More fun: deal with 3D array quantities
+for ikey in list_3d_array:
+
+    if ikey[4] is None:
+        types = [None]
+    else:
+        types = ikey[4]
+
+    for itype in types:
+
+        if itype is None:
+            typefix_in = ''
+            typefix_out = ''
+        else:
+            typefix_in = type_in[itype]
+            typefix_out = type_out[itype]
+
+        vrname = ikey[0] + typefix_in
+        outname = ikey[1] + typefix_out
+
+        outdata = np.zeros((nhaloes, 3), dtype=np.float32) - 1
+
+        for idim in range(3):
+
+            vrname_dim = vrname.replace('?', dimsymbols[idim])
+            outdata[:, idim] = read_data(vrfile, vrname_dim, require=True)
+
+        write_data(outfile, outname, outdata*ikey[3], comment=ikey[2])
 
 
 # To do otherwise: File_id, Num_of_files, Num_of_groups, SimulationInfo, Total_num_of_groups, UnitInfo
