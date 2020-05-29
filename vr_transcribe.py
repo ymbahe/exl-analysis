@@ -69,12 +69,12 @@ type_in = {
 }
 
 type_out = {
-    'total': '/Total',
-    'bh': '/BH',
-    'gas': '/Gas',
-    'gas_nsf': '/NonStarFormingGas',
-    'gas_sf': '/StarFormingGas',
-    'star': '/Stars'
+    'total': '',
+    'bh': 'BlackHoles/',
+    'gas': 'Gas/',
+    'gas_nsf': 'NonStarFormingGas/',
+    'gas_sf': 'StarFormingGas/',
+    'star': 'Stars/'
 }
 
 aperture_list = [100, 50, 30, 10, 5]
@@ -280,14 +280,26 @@ f_part.close()
 for ikey in list_simple:
 
     if len(ikey) < 5: set_trace()
-    if ikey[4] is None:
-        data = read_data(vrfile, ikey[0], require=True)
-        write_data(outfile, ikey[1], data*ikey[3], comment=ikey[2])
 
+    if ikey[4] is None:
+        types = [None]
     else:
-        for itype in ikey[4]:
-            data = read_data(vrfile, ikey[0] + type_in[itype], require=True)
-            write_data(outfile, ikey[1] + '/' + type_out[itype], data*ikey[3], comment=ikey[2])
+        types = ikey[4]
+
+    for itype in types:
+        if itype is None:
+            typefix_in = ''
+            typefix_out = ''
+        else:
+            typefix_in = type_in[itype]
+            typefix_out = type_out[itype]
+
+    vrname = ikey[0] + typefix_in
+    outname = typefix_out + ikey[1]
+
+    data = read_data(vrfile, vrname, require=True)
+    write_data(outfile, outname, data*ikey[3], comment=ikey[2])
+
 
 for ikey in list_profiles:
 
