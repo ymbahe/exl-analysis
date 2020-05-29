@@ -79,14 +79,15 @@ list_apertures = [
     ('Zmet', 'Metallicities/Gas', descr_zmet, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star'], True),
     ('mass', 'Masses', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'], True),
     ('mass_bh', 'Masses/BH_Dynamical', descr_mass, 1.0, None, False),
-    ('npart', 'ParticleNumbers', descr_npart, 1, None, True),
+    ('npart', 'ParticleNumbers', descr_npart, 1, None, False),
     ('rhalfmass', 'HalfMassRadii', descr_halfmass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'], True),
-    ('veldisp', 'VelocityDispersions', descr_veldisp, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'], True)
+    ('veldisp', 'VelocityDispersions', descr_veldisp, 1.0, ['total', 'gas', 'gas_nsf', 'star'], False),
+    ('veldips', 'VelocityDispersions', descr_veldisp, 1.0, ['gas_sf'], False)
 ]
 
 list_simple = [
     ('Efrac', 'BoundFractions', descr_efrac, 1.0, ['total', 'gas', 'star']),
-    ('Ekin' 'KineticEnergies', descr_ekin, 1.0, None),
+    ('Ekin', 'KineticEnergies', descr_ekin, 1.0, None),
     ('Epot', 'PotentialEnergies', descr_epot, 1.0, None),
     ('ID', 'HaloIDs', descr_id, 1, None),
     ('ID_mbp', 'ParticleIDs/MostBound', descr_idp, 1, None),
@@ -178,15 +179,15 @@ list_3d3d_array = [
 
 for ikey in list_simple:
 
+    if len(ikey) < 5: set_trace()
     if ikey[4] is None:
         data = read_data(vrfile, ikey[0], require=True)
         write_data(outfile, ikey[1], data*ikey[3], comment=ikey[2])
 
     else:
         for itype in ikey[4]:
-            set_trace()
             data = read_data(vrfile, ikey[0] + type_in[itype], require=True)
-            write_data(outfile, ikey[1] + '/' + type_out[ikey], data*ikey[3], comment=ikey[2])
+            write_data(outfile, ikey[1] + '/' + type_out[itype], data*ikey[3], comment=ikey[2])
 
 for ikey in list_apertures:
     for iap in aperture_list:
@@ -218,7 +219,7 @@ for ikey in list_apertures:
                     typefix_out = type_out[itype]
 
                 vrname = prefix + ikey[0] + typefix_in + f'_{iap}_kpc'
-                outname = 'ApertureMeasurements' + outfix + ikey[1] + typefix_out
+                outname = 'ApertureMeasurements/' + outfix + ikey[1] + typefix_out + f'/{iap}kpc'
 
                 data = read_data(vrfile, vrname, require=True)
                 write_data(outfile, outname, data*ikey[3], comment=ikey[2])
