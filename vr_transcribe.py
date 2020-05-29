@@ -263,4 +263,35 @@ for ikey in list_3d_array:
         write_data(outfile, outname, outdata*ikey[3], comment=ikey[2])
 
 
+# Most fun: deal with 3x2D matrix quantities
+for ikey in list_3d3d_array:
+
+    if ikey[4] is None:
+        types = [None]
+    else:
+        types = ikey[4]
+
+    for itype in types:
+
+        if itype is None:
+            typefix_in = ''
+            typefix_out = ''
+        else:
+            typefix_in = type_in[itype]
+            typefix_out = type_out[itype]
+
+        vrname = ikey[0] + typefix_in
+        outname = ikey[1] + typefix_out
+
+        outdata = np.zeros((nhaloes, 3, 3), dtype=np.float32) - 1
+
+        for idim1 in range(3):
+            for idim2 in range(3):
+
+                vrname_dim = vrname.replace('?', dimsymbols[idim1]).replace('*', dimsymbols[idim2])        
+                outdata[:, idim1, idim2] = read_data(vrfile, vrname_dim, require=True)
+
+        write_data(outfile, outname, outdata*ikey[3], comment=ikey[2])
+
+
 # To do otherwise: File_id, Num_of_files, Num_of_groups, SimulationInfo, Total_num_of_groups, UnitInfo
