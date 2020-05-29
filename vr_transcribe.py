@@ -26,6 +26,7 @@ vrfile_prof = dirs[0] + f'vr/halos_{args.snapshot:04d}.profiles'
 print(f"Analysing output file {vrfile}...")
 
 outfile = dirs[0] + f'vr_{args.snapshot:04d}.hdf5'
+outfile_particles = dirs[0] + f'vr_{args.snapshot:04d}_particles.hdf5'
 
 # Define translation table for 'simple' data sets...
 # List of tuples, each with structure: [VR_name] || [out_name] || [comment] || conversion factor
@@ -169,33 +170,49 @@ list_3d_array = [
 
     ('V?c', 'Velocities/CentreOfMass', descr_vel, 1.0, ['total', 'gas', 'star']),
     ('V?cmbp', 'Velocities/MostBoundParticle', descr_vel, 1.0, None),
-    ('V?cminpot', 'Velocities/MinimumPotentialParticle', descr_vel, 1.0, None),
+    ('V?cminpot', 'Velocities/MinimumPotential', descr_vel, 1.0, None),
     ('?c', 'Coordinates/CentreOfMass', descr_pos, 1.0, ['total', 'gas', 'star']),
     ('?cmbp', 'Coordinates/MostBoundParticle', descr_vel, 1.0, None),
-    ('?cminpot', 'Coordinates/MinimumPotentialParticle', descr_vel, 1.0, None)
+    ('?cminpot', 'Coordinates/MinimumPotential', descr_vel, 1.0, None)
 ]
 
 list_3d3d_array = [
-    ('RVmax_eig_??', 'Eigenvectors_RVmax', descr_eig, 1.0, None),
-    ('RVmax_veldisp_??', 'VelocityDispersionTensors_RVmax', descr_veldisp, 1.0, None),
-    ('eig_??', 'Eigenvectors', descr_eig, 1.0, ['total', 'gas', 'star']),
-    ('veldisp_??', 'VelocityDispersionTensors', descr_veldisp, 1.0, ['total', 'gas', 'star'])        
+    ('RVmax_eig_?*', 'Eigenvectors_RVmax', descr_eig, 1.0, None),
+    ('RVmax_veldisp_?*', 'VelocityDispersionTensors_RVmax', descr_veldisp, 1.0, None),
+    ('eig_?*', 'Eigenvectors', descr_eig, 1.0, ['total', 'gas', 'star']),
+    ('veldisp_?*', 'VelocityDispersionTensors', descr_veldisp, 1.0, ['total', 'gas', 'star'])        
 ]
 
 list_other_files = [
     ('hierarchy', 'Parent_halo_ID', 'ParentHaloIDs', 'Pointer to the parent halo (-1 for field haloes).'),
-    ('catalog_groups', 'Offset', 'Particles/Offsets', '???'),
-    ('catalog_groups', 'Offset_unbound', 'Particles/Unbound/Offsets', '???'),
-    ('catalog_parttypes', 'Particle_types', 'Particles/PartTypes', ''),
-    ('catalog_particles', 'Particle_IDs', 'Particles/IDs', ''),
-    ('catalog_parttypes.unbound', 'Particle_types', 'Particles/Unbound/PartTypes', ''),
-    ('catalog_particles.unbound', 'Particle_IDs', 'Particles/Unbound/IDs', '')
-    ('catalog_SOlist', 'Offset', 'Particles/Groups/Offset', ''),
-    ('catalog_SOlist', 'Particle_IDs', 'Particles/Groups/IDs', ''),
-    ('catalog_SOlist', 'Particle_types', 'Particles/Groups/PartTypes', ''),
-    ('catalog_SOlist', 'SO_size', 'Particles/Groups/Numbers', '')
+    #('catalog_groups', 'Offset', 'Particles/Offsets', '???'),
+    #('catalog_groups', 'Offset_unbound', 'Particles/Unbound/Offsets', '???'),
+    #('catalog_parttypes', 'Particle_types', 'Particles/PartTypes', '', False),
+    #('catalog_particles', 'Particle_IDs', 'Particles/IDs', '', False),
+    #('catalog_parttypes.unbound', 'Particle_types', 'Particles/Unbound/PartTypes', '', False),
+    #('catalog_particles.unbound', 'Particle_IDs', 'Particles/Unbound/IDs', '', False),
+    #('catalog_SOlist', 'Offset', 'Particles/Groups/Offset', ''),
+    #('catalog_SOlist', 'Particle_IDs', 'Particles/Groups/IDs', '', False),
+    #('catalog_SOlist', 'Particle_types', 'Particles/Groups/PartTypes', '', False),
+    #('catalog_SOlist', 'SO_size', 'Particles/Groups/Numbers', '')
 ]
 
+
+list_particles = [
+    ('catalog_groups', 'Offset', 'Haloes/Offsets', '???'),
+    ('catalog_groups', 'Offset_unbound', 'Unbound/Offsets', '???'),
+    ('catalog_parttypes', 'Particle_types', 'Haloes/PartTypes', ''),
+    ('catalog_particles', 'Particle_IDs', 'Haloes/IDs', ''),
+    ('catalog_parttypes.unbound', 'Particle_types', 'Unbound/PartTypes', ''),
+    ('catalog_particles.unbound', 'Particle_IDs', 'Unbound/IDs', ''),
+    ('catalog_SOlist', 'Offset', 'Groups/Offset', ''),
+    ('catalog_SOlist', 'Particle_IDs', 'Groups/IDs', ''),
+    ('catalog_SOlist', 'Particle_types', 'Groups/PartTypes', ''),
+    ('catalog_SOlist', 'SO_size', 'Groups/Numbers', ''),
+    ('properties', 'npart', 'Haloes/Numbers', '')
+]
+
+       
 list_profiles = [
     ('Mass_inclusive_profile', 'Profiles/Masses_All', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
     ('Mass_profile', 'Profiles/Masses_Halo', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
@@ -203,29 +220,19 @@ list_profiles = [
     ('Npart_profile', 'Profiles/Numbers_Halo', descr_npart, 1, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'])
 ]
 
-Mass_inclusive_profile   Dataset {44657, 20}
-Mass_inclusive_profile_gas Dataset {44657, 20}
-Mass_inclusive_profile_gas_nsf Dataset {44657, 20}
-Mass_inclusive_profile_gas_sf Dataset {44657, 20}
-Mass_inclusive_profile_star Dataset {44657, 20}
-Mass_profile             Dataset {55788, 20}
-Mass_profile_gas         Dataset {55788, 20}
-Mass_profile_gas_nsf     Dataset {55788, 20}
-Mass_profile_gas_sf      Dataset {55788, 20}
-Mass_profile_star        Dataset {55788, 20}
-Npart_inclusive_profile  Dataset {44657, 20}
-Npart_inclusive_profile_gas Dataset {44657, 20}
-Npart_inclusive_profile_gas_nsf Dataset {44657, 20}
-Npart_inclusive_profile_gas_sf Dataset {44657, 20}
-Npart_inclusive_profile_star Dataset {44657, 20}
-Npart_profile            Dataset {55788, 20}
-Npart_profile_gas        Dataset {55788, 20}
-Npart_profile_gas_nsf    Dataset {55788, 20}
-Npart_profile_gas_sf     Dataset {55788, 20}
-Npart_profile_star       Dataset {55788, 20}
-
-
 # Transcribe metadata
+
+f_in = h5.File(vrfile, 'r')
+f_out = h5.File(outfile, 'w')
+
+f_in.copy('Configuration', f_out)
+f_in.copy('SimulationInfo', f_out)
+f_in.copy('UnitInfo', f_out)
+
+f_in.close()
+f_out.close()
+
+
 num_haloes_total = read_data(vrfile, 'Total_num_of_groups')[0]
 num_haloes = read_data(vrfile, 'Num_of_groups')[0]         # Note confusing nomenclature
 num_groups = read_data(vrfile_prof, 'Num_of_halos')[0]     # ....
@@ -243,17 +250,6 @@ num_bin_edges = read_data(vrfile_prof, 'Num_of_bin_edges')[0]
 radial_bin_edges = read_data(vrfile_prof, 'Radial_bin_edges')
 type_radial_bins = read_data(vrfile_prof, 'Radial_norm')[0]
 
-
-f_in = h5.File(vrfile, 'r')
-f_out = h5.File(outfile)
-
-f_in.copy('Configuration', f_out)
-f_in.copy('SimulationInfo', f_out)
-f_in.copy('UnitInfo', f_out)
-
-f_in.close()
-f_out.close()
-
 write_attribute(outfile, 'Header', 'NumberOfHaloes', num_haloes)
 write_attribute(outfile, 'Header', 'NumberOfHaloes_Total', num_haloes_total)
 write_attribute(outfile, 'Header', 'NumberOfGroups', num_groups)
@@ -268,7 +264,16 @@ write_attribute(outfile, 'Header', 'NumberOfUnboundParticles_Total', num_unbound
 write_attribute(outfile, 'Profiles', 'Flag_Inclusive', flag_inclusive_profiles)
 write_attribute(outfile, 'Profiles', 'NumberOfBinEdges', num_bin_edges)
 write_attribute(outfile, 'Profiles', 'TypeOfBinEdges', type_radial_bins)
-write_attribute(outfile, 'Profiles', 'RadialBinEdges', tradial_bin_edges)
+write_attribute(outfile, 'Profiles', 'RadialBinEdges', radial_bin_edges)
+
+f_out = h5.File(outfile, 'r')
+f_part = h5.File(outfile_particles, 'w')
+
+f_out.copy('Header', f_part)
+
+f_out.close()
+f_part.close()
+
 
 # Actually transcribe data...
 
@@ -353,7 +358,7 @@ for ikey in list_3d_array:
         vrname = ikey[0] + typefix_in
         outname = ikey[1] + typefix_out
 
-        outdata = np.zeros((nhaloes, 3), dtype=np.float32) - 1
+        outdata = np.zeros((num_haloes, 3), dtype=np.float32) - 1
 
         for idim in range(3):
 
@@ -387,7 +392,7 @@ for ikey in list_3d3d_array:
         vrname = ikey[0] + typefix_in
         outname = ikey[1] + typefix_out
 
-        outdata = np.zeros((nhaloes, 3, 3), dtype=np.float32) - 1
+        outdata = np.zeros((num_haloes, 3, 3), dtype=np.float32) - 1
 
         for idim1 in range(3):
             for idim2 in range(3):
@@ -406,4 +411,14 @@ for ikey in list_other_files:
     infile = dirs[0] + f'vr/halos_{args.snapshot:04d}.{ikey[0]}'
 
     data = read_data(infile, ikey[1], require=True)
-    write_data(outfile, ikey[1], data*ikey[2], comment=ikey[3])
+    write_data(outfile, ikey[2], data, comment=ikey[3])
+
+
+for ikey in list_particles:
+
+    if len(ikey) != 4: set_trace()
+
+    infile = dirs[0] + f'vr/halos_{args.snapshot:04d}.{ikey[0]}'
+
+    data = read_data(infile, ikey[1], require=True)
+    write_data(outfile_particles, ikey[2], data, comment=ikey[3])
