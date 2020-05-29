@@ -73,6 +73,7 @@ type_out = {
 
 aperture_list = [100, 50, 30, 10, 5]
 dimsymbols = ['x', 'y', 'z']
+dimsymbols_cap = ['X', 'Y', 'Z']
 
 list_apertures = [
     ('SFR_gas', 'SFR', descr_sfr, conv_sfr, None, True),
@@ -252,7 +253,11 @@ for ikey in list_3d_array:
 
         for idim in range(3):
 
-            vrname_dim = vrname.replace('?', dimsymbols[idim])
+            if ikey[0] in ['V?c', 'V?cmbp', 'V?cminpot', '?c', '?cmbp', '?cminpot']:
+                vrname_dim = vrname.replace('?', dimsymbols_cap[idim])
+            else:
+                vrname_dim = vrname.replace('?', dimsymbols[idim])
+        
             outdata[:, idim] = read_data(vrfile, vrname_dim, require=True)
 
         write_data(outfile, outname, outdata*ikey[3], comment=ikey[2])
