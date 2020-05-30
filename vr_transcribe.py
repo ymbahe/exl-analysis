@@ -2,6 +2,7 @@
 
 import numpy as np
 
+import time
 from pdb import set_trace
 import argparse
 import glob
@@ -10,27 +11,13 @@ import h5py as h5
 
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
-parser.add_argument('sim', type=int, help='Simulation index to transcribe')
-parser.add_argument('snapshot', type=int, help='Snapshot to transcribe')
+parser.add_argument('--sims', type=int, help='Simulation index to transcribe')
+#parser.add_argument('snapshot', type=int, help='Snapshot to transcribe')
 parser.add_argument('--snaps', type=int, nargs='+')
 args = parser.parse_args()
 
-dirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{args.sim}*/')
-if len(dirs) != 1:
-    print(f"Could not unambiguously find directory for simulation {args.sim}!")
-    set_trace()
-vrfile = dirs[0] + f'vr/halos_{args.snapshot:04d}.properties'
-vrfile_CPU = dirs[0] + f'vr/halos_{args.snapshot:04d}.catalog_particles.unbound'
-vrfile_CP = dirs[0] + f'vr/halos_{args.snapshot:04d}.catalog_particles'
-vrfile_prof = dirs[0] + f'vr/halos_{args.snapshot:04d}.profiles'
 
-print(f"Analysing output file {vrfile}...")
-
-outfile = dirs[0] + f'vr_{args.snapshot:04d}.hdf5'
-outfile_particles = dirs[0] + f'vr_{args.snapshot:04d}_particles.hdf5'
-
-# Define translation table for 'simple' data sets...
-# List of tuples, each with structure: [VR_name] || [out_name] || [comment] || conversion factor
+# Define the general translation structure
 
 descr_sfr = 'Star formation rates in M_sun / yr'
 descr_mass = 'Mass in M_sun'
@@ -187,15 +174,18 @@ list_3d_array = [
     ('?cminpot', 'MinimumPotential/Coordinates', descr_pos, 1.0, None)
 ]
 
-list_3d3d_array = [
+list_3x3_matrix = [
     ('RVmax_eig_?*', 'ApertureMeasurements/RVmax/Eigenvectors', descr_eig, 1.0, None),
     ('RVmax_veldisp_?*', 'ApertureMeasurements/RVmax/VelocityDispersionTensors', descr_veldisp, 1.0, None),
     ('eig_?*', 'Eigenvectors', descr_eig, 1.0, ['total', 'gas', 'star']),
     ('veldisp_?*', 'VelocityDispersionTensors', descr_veldisp, 1.0, ['total', 'gas', 'star'])        
 ]
 
+# Data to be transferred from hierarchy VR file
 list_other_files = [
-    ('hierarchy', 'Parent_halo_ID', 'ParentHaloIDs', 'Pointer to the parent halo (-1 for field haloes).'),
+    ('Parent_halo_ID', 'ParentHaloIDs', 
+        'Pointer to the parent halo (-1 for field haloes).',
+        None, None, None, 'hierarchy'),
     #('catalog_groups', 'Offset', 'Particles/Offsets', '???'),
     #('catalog_groups', 'Offset_unbound', 'Particles/Unbound/Offsets', '???'),
     #('catalog_parttypes', 'Particle_types', 'Particles/PartTypes', '', False),
@@ -210,17 +200,24 @@ list_other_files = [
 
 
 list_particles = [
-    ('catalog_groups', 'Offset', 'Haloes/Offsets', '???'),
-    ('catalog_groups', 'Offset_unbound', 'Unbound/Offsets', '???'),
-    ('catalog_parttypes', 'Particle_types', 'Haloes/PartTypes', ''),
-    ('catalog_particles', 'Particle_IDs', 'Haloes/IDs', ''),
-    ('catalog_parttypes.unbound', 'Particle_types', 'Unbound/PartTypes', ''),
-    ('catalog_particles.unbound', 'Particle_IDs', 'Unbound/IDs', ''),
-    ('catalog_SOlist', 'Offset', 'Groups/Offset', ''),
-    ('catalog_SOlist', 'Particle_IDs', 'Groups/IDs', ''),
-    ('catalog_SOlist', 'Particle_types', 'Groups/PartTypes', ''),
-    ('catalog_SOlist', 'SO_size', 'Groups/Numbers', ''),
-    ('properties', 'npart', 'Haloes/Numbers', '')
+    ('Offset', 'Haloes/Offsets',
+        'Index of the first particle ID in "IDs" that belongs to each halo.', 
+        None, None, None, 'catalog_groups'),
+    ('Offset_unbound', 'Unbound/Offsets',
+        'Index of the first particle ID in "IDs" that belongs to each halo.',
+        None, None, None, 'catalog_groups'),
+    ('Particle_types', 'Haloes/PartTypes',
+        'Types of all particles associated with haloes. Particles belonging to '
+        'halo i are listed in indices [Offsets[i]] : [Offsets[i+1]].',
+        None, None, None, 'catalog_parttypes'),
+    ('Particle_IDs', 'Haloes/IDs', '', None, None, None, 'catalog_particles'),
+    ('Particle_types', 'Unbound/PartTypes', '', None, None, None, 'catalog_parttypes.unbound'),
+    ('Particle_IDs', 'Unbound/IDs', '', None, None, None, 'catalog_particles.unbound'),
+    ('Offset', 'Groups/Offset', '', None, None, None, 'catalog_SOlist'),
+    ('Particle_IDs', 'Groups/IDs', '', None, None, None, 'catalog_SOlist'),
+    ('Particle_types', 'Groups/PartTypes', '', None, None, None, 'catalog_SOlist'),
+    ('SO_size', 'Groups/Numbers', '', None, None, None, 'catalog_SOlist'),
+    ('npart', 'Haloes/Numbers', '', None, None, None, 'properties')
 ]
 
        
@@ -232,7 +229,58 @@ list_profiles = [
 ]
 
 
-def transcribe_metadata(vrfile_base, outfile):
+def main():
+    """Main loop over simulations and snapshots."""
+    for isim in args.sims:
+
+        # Get simulation directory
+        dirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{args.sim}*/')
+        if list(dirs) != 1:
+            print(f"Could not unambiguously find directory for simulation "
+                  f"{args.sim}!")
+            set_trace()
+        wdir = dirs[0]
+
+        for isnap in args.snaps:
+            process_snap(wdir, isnap)
+
+
+def process_snap(wdir, isnap):
+    """Process one simulation snapshot."""
+
+    stime = time.time()
+    print(f"Transcribing simulation {wdir}, snapshot {isnap}...")
+
+    # Form the various VR file names
+    vrfile_base = wdir + f'vr/halos_{args.snapshot:04d}.'
+    vrfile = vrfile_base + 'properties'
+    vrfile_CPU = vrfile_base + 'catalog_particles.unbound'
+    vrfile_CP = vrfile_base + 'catalog_particles'
+    vrfile_prof = vrfile_base + 'profiles'
+    vrfile_hierarchy = vrfile_base + 'hierarchy'
+
+    # Construct the output files (for main catalogue and for particle info)
+    outfile = wdir + f'vr_{args.snapshot:04d}.hdf5'
+    outfile_particles = wdir + f'vr_{args.snapshot:04d}_particles.hdf5'
+
+    transcribe_metadata(vrfile_base, outfile, outfile_particles)
+
+    transcribe_data(list_apertures, vrfile, outfile, kind='apertures')
+    transcribe_data(list_simple, vrfile, outfile)
+    transcribe_data(list_3d_array, vrfile, outfile, form='3darray')
+    transcribe_data(list_3x3_matrix, vrfile, outfile, form='3x3matrix')
+    transcribe_data(list_hierarchy, vrfile_hierarchy, outfile)
+    transcribe_data(list_particles, vrfile_base, outfile_particles,
+                    mixed_source=True)
+    transcribe_data(list_profiles, vrfile, outfile, kind='profiles')
+
+    print(""
+          f"Finished transcribing simulation {wdir}, snapshot {isnap} "
+          f"in {(time.time() - stime):.3f} sec."
+          "")
+
+
+def transcribe_metadata(vrfile_base, outfile, outfile_particles):
     """Transcribe the metadata"""
     
     # Set up the required VR file paths
@@ -293,7 +341,8 @@ def transcribe_metadata(vrfile_base, outfile):
     f_part.close()
 
 
-def transcribe_data(data_list, vrfile, outfile, kind):
+def transcribe_data(data_list, vrfile, outfile, kind='simple',
+                    form='scalar', mixed_source=False):
     """Transcribe data sets.
 
     Parameters
@@ -307,21 +356,41 @@ def transcribe_data(data_list, vrfile, outfile, kind):
         The output file to store transcribed data in.
     kind : str
         The kind of transcription we are doing. Options are
-            - 'simple' --> scalar data transcription
+            - 'main' --> main data transcription
             - 'profiles' --> transcribe profile data
             - 'apertures' --> transcribe aperture measurements
+    form : str
+        Form of data elements. Options are
+            - 'scalar' --> simple scalar data quantity
             - '3darray' --> transcribe 3d array quantities
             - '3x3matrix' --> transcribe 3x3 matrix quantities
+    mixed_source : bool, optional
+        If True, index 6 specifies the source VR file and 'vrfile' is 
+        assumed to be the common base instead.
     """
     for ikey in data_list:
         if len(ikey) < 5: set_trace()
-        if len(ikey) > 5 and kind != 'apertures': set_trace()
+        #if len(ikey) > 5 and kind != 'apertures': set_trace()
             
         # Deal with possibility of 'None' in Type_list (no type iteration)
         if ikey[4] is None:
             types = [None]
         else:
             types = ikey[4]
+
+        # Deal with possibility of mixed-source input
+        if mixed_source:
+            if len(ikey) < 7:
+                print("Need to specify source file in index 6 for "
+                      "mixed source transcription!")
+            vrfile = vrfile + ikey[6]
+
+        # Some quantities use capital X/Y/Z in VR...
+        if ikey[0] in ['V?c', 'V?cmbp', 'V?cminpot', 
+                       '?c', '?cmbp', '?cminpot']:
+            dimsyms = dimsymbols_cap
+        else:
+            dimsyms = dimsymbols
 
         # Iterate over aperture types (only relevant for apertures)
         if kind == 'apertures':
@@ -370,23 +439,50 @@ def transcribe_data(data_list, vrfile, outfile, kind):
                     vrname = ikey[0] + typefix_in
                     outname = typefix_out + ikey[1]
 
-                    # Special case: Profiles
+                    # Deal with names for special cases
                     if kind == 'profiles':
-                    outname = f'Profiles/{outname}'
-                
-                    print(f"{vrname} --> {outname}")
+                        outname = f'Profiles/{outname}'
+                    elif kind == 'apertures':
+                        vrname = f'{ap_prefix}{vrname}_{iap}_kpc'
+                        outname = (f'ApertureMeasurements{ap_outfix}{iap}kpc/'
+                                   f'{outname}')
 
                     # Transcribe data
-                    data = read_data(vrfile, vrname, require=True)
-                    if ikey[3] is not None:
-                        data *= ikey[3]
-                    write_data(outfile, outname, data, comment=comment)
-            
+                    print(f"{vrname} --> {outname}")
 
-                vrname = prefix + ikey[0] + typefix_in + f'_{iap}_kpc'
-                outname = f'ApertureMeasurements' + outfix + f'{iap}kpc/' + typefix_out + ikey[1]
+                    if form == '3darray':
+                        outdata = np.zeros((num_haloes, 3), dtype=np.float32)-1
 
+                        # Load individual dimensions' data sets into output
+                        for idim in range(3):
+                            vrname_dim = vrname.replace('?', dimsyms[idim])        
+                            outdata[:, idim] = read_data(vrfile, vrname_dim,
+                                                         require=True)
                     
+                    elif form == '3x3matrix':
+                        outdata = np.zeros((num_haloes, 3, 3), 
+                                           dtype=np.float32) - 1                        
+                        for idim1 in range(3):
+                            for idim2 in range(3):
+                                vrname_dim = 
+                                    vrname.replace('?', dimsyms[idim1]).replace('*', dimsyms[idim2])
+                                outdata[:, idim1, idim2] = read_data(
+                                    vrfile, vrname_dim, require=True)
+                    else:
+                        # Standard case (scalar quantity)
+                        outdata = read_data(vrfile, vrname, require=True)
+
+                    if ikey[3] is not None:
+                        outdata *= ikey[3]
+
+                    write_data(outfile, outname, outdata, comment=comment)
+
+
+
+if __name__ == '__main__':
+    main()
+            
+"""                    
 for ikey in list_profiles:
     print("Profiles...")
     
@@ -434,8 +530,13 @@ for ikey in list_apertures:
                 vrname = prefix + ikey[0] + typefix_in + f'_{iap}_kpc'
                 outname = f'ApertureMeasurements' + outfix + f'{iap}kpc/' + typefix_out + ikey[1]
                 print(outname)
-                
-                data = read_data(vrfile, vrname, require=True)
+
+                if kind == '3darray':
+                    pass
+                elif kind == '3x3matrix':
+                    pass
+                else:
+                    outdata = read_data(vrfile, vrname, require=True)
                 write_data(outfile, outname, data*ikey[3], comment=ikey[2])
 
 
@@ -525,3 +626,4 @@ for ikey in list_particles:
 
     data = read_data(infile, ikey[1], require=True)
     write_data(outfile_particles, ikey[2], data, comment=ikey[3])
+"""
