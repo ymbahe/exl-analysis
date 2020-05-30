@@ -12,6 +12,7 @@ print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
 parser.add_argument('sim', type=int, help='Simulation index to transcribe')
 parser.add_argument('snapshot', type=int, help='Snapshot to transcribe')
+parser.add_argument('--snaps', type=int, nargs='+')
 args = parser.parse_args()
 
 dirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{args.sim}*/')
@@ -77,16 +78,25 @@ type_out = {
     'star': 'Stars/'
 }
 
+type_self = {
+    'total': '',
+    'bh': 'black holes',
+    'gas': 'gas',
+    'gas_nsf': 'not star forming gas',
+    'gas_sf': 'star forming',
+    'star': 'star'
+}
+    
 aperture_list = [100, 50, 30, 10, 5]
 dimsymbols = ['x', 'y', 'z']
 dimsymbols_cap = ['X', 'Y', 'Z']
 
 list_apertures = [
     ('SFR_gas', 'SFR', descr_sfr, conv_sfr, None, True),
-    ('SubgridMasses_aperture_total_solar_mass_bh', 'Masses/BH_SubgridMasses', descr_sfr, conv_sfr, None, False),
-    ('Zmet', 'Metallicities/Gas', descr_zmet, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star'], True),
-    ('mass', 'Masses', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'], True),
-    ('mass_bh', 'Masses/BH_Dynamical', descr_mass, 1.0, None, False),
+    ('SubgridMasses_aperture_total_solar_mass_bh', 'BlackHoles/SubgridMasses', descr_sfr, conv_sfr, None, False),
+    ('Zmet', 'Metallicities', descr_zmet, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star'], True),
+    ('mass', 'Masses', descr_mass, 1e10, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'], True),
+    ('mass_bh', 'BlackHoles/DynamicalMasses', descr_mass, 1e10, None, False),
     ('npart', 'ParticleNumbers', descr_npart, 1, None, False),
     ('rhalfmass', 'HalfMassRadii', descr_halfmass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'], True),
     ('veldisp', 'VelocityDispersions', descr_veldisp, 1.0, ['total', 'gas', 'gas_nsf', 'star'], False),
@@ -98,87 +108,88 @@ list_simple = [
     ('Ekin', 'KineticEnergies', descr_ekin, 1.0, None),
     ('Epot', 'PotentialEnergies', descr_epot, 1.0, None),
     ('ID', 'HaloIDs', descr_id, 1, None),
-    ('ID_mbp', 'ParticleIDs/MostBound', descr_idp, 1, None),
-    ('ID_minpot', 'ParticleIDs/MinimumPotential', descr_idp, 1, None),
+    ('ID_mbp', 'MostBoundParticles/ParticleIDs', descr_idp, 1, None),
+    ('ID_minpot', 'MinimumPotential/ParticleIDs', descr_idp, 1, None),
     ('Krot', 'KappaRotParameters', descr_kapparot, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('M', 'Masses', descr_mass, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('M_bh', 'Masses/BH_Dynamical', descr_mass, 1.0, None),
-    ('M_gas_500c', 'Masses/Special/Gas_R500c', descr_mass, 1.0, None),
-    ('M_gas_Rvmax', 'Masses/Special/Gas_RVmax', descr_mass, 1.0, None),
-    ('M_star_500c', 'Masses/Special/Stars_R500c', descr_mass, 1.0, None),
-    ('M_star_Rvmax', 'Masses/Special/Stars_RVmax', descr_mass, 1.0, None),
-    ('Mass_200crit', 'Masses/R200crit_All', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('Mass_200crit_excl', 'Masses/R200crit_Halo', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('Mass_200mean', 'Masses/R200mean_All', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('Mass_200mean_excl', 'Masses/R200mean_Halo', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('Mass_BN98', 'Masses/BN98_All', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('Mass_BN98_excl', 'Masses/BN98_Halo', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('Mass_FOF', 'Masses/FOF', descr_mass, 1.0, None),
-    ('Mass_tot', 'Masses/Total', descr_mass, 1.0, None),
-    ('Mvir', 'Masses/Virial', descr_mass, 1.0, None),
-    ('RVmax_lambda_B', 'LambdaBSpins_RVmax', descr_lambdab, 1.0, None),
-    ('RVmax_q', 'MajorAxisRatios_RVmax', descr_q, 1.0, None),
-    ('RVmax_s', 'MinorAxisRatios_RVmax', descr_s, 1.0, None),
-    ('RVmax_sigV', 'VelocityDispersions_RVmax', descr_veldisp, 1.0, None),
-    ('R_200crit', 'Radii/R200crit_All', descr_rad, 1.0, None),
-    ('R_200crit_excl', 'Radii/R200crit_Halo', descr_rad, 1.0, None),
-    ('R_200mean', 'Radii/R200mean_All', descr_rad, 1.0, None),
-    ('R_200mean_excl', 'Radii/R200mean_Halo', descr_rad, 1.0, None),
-    ('R_BN98', 'Radii/BN98_All', descr_rad, 1.0, None),
-    ('R_BN98_excl', 'Radii/BN98_Halo', descr_rad, 1.0, None),
-    ('R_HalfMass', 'Radii/HalfMass', descr_halfmass, 1.0, ['total', 'gas', 'gas_sf', 'gas_nsf', 'star']),
+    ('M', 'Masses', descr_mass, 1e10, ['gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('M_bh', 'BlackHoles/DynamicalMasses', descr_mass, 1e10, None),
+    ('M_gas_500c', 'Gas/M500c', descr_mass, 1e10, None),
+    ('M_gas_Rvmax', 'ApertureMeasurements/RVmax/GasMasses', descr_mass, 1e10, None),
+    ('M_star_500c', 'Stars/M500c', descr_mass, 1e10, None),
+    ('M_star_Rvmax', 'ApertureMeasurements/RVmax/StellarMasses', descr_mass, 1e10, None),
+    ('Mass_200crit', 'M200crit', descr_mass, 1e10, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('Mass_200crit_excl', 'HaloSO/M200crit', descr_mass, 1e10, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('Mass_200mean', 'M200mean', descr_mass, 1e10, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('Mass_200mean_excl', 'HaloSO/M200mean', descr_mass, 1e10, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('Mass_BN98', 'Mvir_BN98', descr_mass, 1e10, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('Mass_BN98_excl', 'HaloSO/Mvir_BN98', descr_mass, 1e10, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('Mass_FOF', 'FOF_Masses', descr_mass, 1e10, None),
+    ('Mass_tot', 'Masses', descr_mass, 1e10, None),
+    ('Mvir', 'VirialMasses', descr_mass, 1e10, None),
+    ('RVmax_lambda_B', 'ApertureMeasurements/RVmax/LambdaBSpins', descr_lambdab, 1.0, None),
+    ('RVmax_q', 'ApertureMeasurements/RVmax/MajorAxisRatios', descr_q, 1.0, None),
+    ('RVmax_s', 'ApertureMeasurements/RVmax/MinorAxisRatios', descr_s, 1.0, None),
+    ('RVmax_sigV', 'ApertureMeasurements/RVmax/VelocityDispersions', descr_veldisp, 1.0, None),
+    ('R_200crit', 'R200crit', descr_rad, 1.0, None),
+    ('R_200crit_excl', 'HaloSO/R200crit', descr_rad, 1.0, None),
+    ('R_200mean', 'R200mean', descr_rad, 1.0, None),
+    ('R_200mean_excl', 'HaloSO/R200mean', descr_rad, 1.0, None),
+    ('R_BN98', 'Rvir_BN98', descr_rad, 1.0, None),
+    ('R_BN98_excl', 'HaloSO/Rvir_BN98', descr_rad, 1.0, None),
+    ('R_HalfMass', 'HalfMassRadii', descr_halfmass, 1.0, ['total', 'gas', 'gas_sf', 'gas_nsf', 'star']),
     ('R_size', 'HaloExtents', descr_rad, 1.0, None),
-    ('Rmax', 'Radii/RVmax', descr_rad, 1.0, None),
-    ('Rvir', 'Radii/Virial', descr_mass, 1.0, None),
-    ('SFR_gas', 'StarFormationRates', descr_sfr, 1.0, None),
+    ('Rmax', 'RVmax', descr_rad, 1.0, None),
+    ('Rvir', 'VirialRadii', descr_rad, 1.0, None),
+    ('SFR_gas', 'StarFormationRates', descr_sfr, conv_sfr, None),
     ('Structuretype', 'StructureTypes', descr_stype, 1, None),
-    ('SubgridMasses_average_solar_mass_bh', 'Masses/BH_Average_SubgridMasses', descr_mass, 1.0, None),
-    ('SubgridMasses_max_solar_mass_bh', 'Masses/BH_Max_SubgridMasses', descr_mass, 1.0, None),
-    ('SubgridMasses_min_solar_mass_bh', 'Masses/BH_Min_SubgridMasses', descr_mass, 1.0, None),
+    ('SubgridMasses_average_solar_mass_bh', 'BlackHoles/AverageSubgridMasses', descr_mass, 1e10, None),
+    ('SubgridMasses_max_solar_mass_bh', 'BlackHoles/MaxSubgridMasses', descr_mass, 1e10, None),
+    ('SubgridMasses_min_solar_mass_bh', 'BlackHoles/MinSubgridMasses', descr_mass, 1e10, None),
     ('T', 'Temperatures', descr_temp, 1.0, ['gas', 'gas_sf', 'gas_nsf']),
-    ('Vmax', 'Vmax', descr_vel, 1.0, None),
+    ('Vmax', 'MaximumCircularVelocities', descr_vel, 1.0, None),
     ('Zmet', 'Metallicities', descr_zmet, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
     ('cNFW', 'Concentrations', descr_c, 1.0, None),
-    ('hostHaloID', 'HostHaloIDs', descr_id, 1.0, None),
+    ('hostHaloID', 'CentralHaloIDs', 'Pointer to the central halo in the same group; -1 if this halo is'
+                                     'itself a central ("field") halo.', 1, None),
     ('lambda_B', 'LambdaBSpins', descr_lambdab, 1.0, None),
-    ('n', 'Particles/Numbers', descr_npart, 1, ['bh', 'gas', 'star']),
-    ('npart', 'Particles/Numbers/Total', descr_npart, 1, None),
+    ('n', 'ParticleNumbers', 'Number of # particles in the halo.', 1, ['bh', 'gas', 'star']),
+    ('npart', 'ParticleNumbers', descr_npart, 1, None),
     ('numSubStruct', 'SubstructureCounts', descr_substr, 1, None),
     ('q', 'MajorAxisRatios', descr_q, 1.0, ['total', 'gas', 'star']),
     ('s', 'MinorAxisRatios', descr_s, 1.0, ['total', 'gas', 'star']),
     ('sigV', 'VelocityDispersions', descr_veldisp, 1.0, ['total', 'gas_nsf', 'gas_sf']),
-    ('tage_star', 'StellarAges', descr_sage, 1.0, None)
+    ('tage_star', 'Stars/AverageAges', descr_sage, 1.0, None)
 ]
 
 list_3d_array = [
     ('L?', 'AngularMomenta/Total', descr_angmom, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
 
-    ('L?_200c_excl', 'AngularMomenta/R200crit_Halo', descr_angmom, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('L?_200c', 'AngularMomenta/R200crit_All', descr_angmom, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('L?_200crit', 'AngularMomenta/R200crit_All/Total', descr_angmom, 1.0, None),
-    ('L?_200crit_excl', 'AngularMomenta/R200crit_Halo/Total', descr_angmom, 1.0, None),
+    ('L?_200c_excl', 'HaloSO/AngularMomenta/R200crit', descr_angmom, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('L?_200c', 'AngularMomenta/R200crit', descr_angmom, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('L?_200crit', 'AngularMomenta/R200crit', descr_angmom, 1.0, None),
+    ('L?_200crit_excl', 'HaloSO/AngularMomenta/R200crit', descr_angmom, 1.0, None),
 
-    ('L?_200m_excl', 'AngularMomenta/R200mean_Halo', descr_angmom, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('L?_200m', 'AngularMomenta/R200mean_All', descr_angmom, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('L?_200mean', 'AngularMomenta/R200mean_All/Total', descr_angmom, 1.0, None),
-    ('L?_200mean_excl', 'AngularMomenta/R200mean_Halo/Total', descr_angmom, 1.0, None),
+    ('L?_200m_excl', 'HaloSO/AngularMomenta/R200mean', descr_angmom, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('L?_200m', 'AngularMomenta/R200mean', descr_angmom, 1.0, ['gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('L?_200mean', 'AngularMomenta/R200mean', descr_angmom, 1.0, None),
+    ('L?_200mean_excl', 'HaloSO/AngularMomenta/R200mean', descr_angmom, 1.0, None),
 
-    ('L?_BN98', 'AngularMomenta/BN98_All', descr_angmom, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('L?_BN98_excl', 'AngularMomenta/BN98_Halo', descr_angmom, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('L?_BN98', 'AngularMomenta/Rvir_BN98', descr_angmom, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('L?_BN98_excl', 'HaloSO/AngularMomenta/Rvir_BN98', descr_angmom, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
 
-    ('RVmax_L?', 'AngularMomenta/RVmax', descr_angmom, 1.0, None),
+    ('RVmax_L?', 'ApertureMeasurements/RVmax/AngularMomenta', descr_angmom, 1.0, None),
 
-    ('V?c', 'Velocities/CentreOfMass', descr_vel, 1.0, ['total', 'gas', 'star']),
-    ('V?cmbp', 'Velocities/MostBoundParticle', descr_vel, 1.0, None),
-    ('V?cminpot', 'Velocities/MinimumPotential', descr_vel, 1.0, None),
-    ('?c', 'Coordinates/CentreOfMass', descr_pos, 1.0, ['total', 'gas', 'star']),
-    ('?cmbp', 'Coordinates/MostBoundParticle', descr_vel, 1.0, None),
-    ('?cminpot', 'Coordinates/MinimumPotential', descr_vel, 1.0, None)
+    ('V?c', 'CentreOfMassVelocities', descr_vel, 1.0, ['total', 'gas', 'star']),
+    ('V?cmbp', 'MostBoundParticles/Velocities', descr_vel, 1.0, None),
+    ('V?cminpot', 'MinimumPotential/Velocities', descr_vel, 1.0, None),
+    ('?c', 'CentresOfMass', descr_pos, 1.0, ['total', 'gas', 'star']),
+    ('?cmbp', 'MostBoundParticles/Coordinates', descr_pos, 1.0, None),
+    ('?cminpot', 'MinimumPotential/Coordinates', descr_pos, 1.0, None)
 ]
 
 list_3d3d_array = [
-    ('RVmax_eig_?*', 'Eigenvectors_RVmax', descr_eig, 1.0, None),
-    ('RVmax_veldisp_?*', 'VelocityDispersionTensors_RVmax', descr_veldisp, 1.0, None),
+    ('RVmax_eig_?*', 'ApertureMeasurements/RVmax/Eigenvectors', descr_eig, 1.0, None),
+    ('RVmax_veldisp_?*', 'ApertureMeasurements/RVmax/VelocityDispersionTensors', descr_veldisp, 1.0, None),
     ('eig_?*', 'Eigenvectors', descr_eig, 1.0, ['total', 'gas', 'star']),
     ('veldisp_?*', 'VelocityDispersionTensors', descr_veldisp, 1.0, ['total', 'gas', 'star'])        
 ]
@@ -214,104 +225,181 @@ list_particles = [
 
        
 list_profiles = [
-    ('Mass_inclusive_profile', 'Profiles/Masses_All', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('Mass_profile', 'Profiles/Masses_Halo', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('Npart_inclusive_profile', 'Profiles/Numbers_All', descr_npart, 1, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
-    ('Npart_profile', 'Profiles/Numbers_Halo', descr_npart, 1, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'])
+    ('Mass_inclusive_profile', 'Groups/Masses', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('Mass_profile', 'Masses', descr_mass, 1.0, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('Npart_inclusive_profile', 'Groups/Numbers', descr_npart, 1, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star']),
+    ('Npart_profile', 'Numbers_Halo', descr_npart, 1, ['total', 'gas', 'gas_nsf', 'gas_sf', 'star'])
 ]
 
-# Transcribe metadata
 
-f_in = h5.File(vrfile, 'r')
-f_out = h5.File(outfile, 'w')
+def transcribe_metadata(vrfile_base, outfile):
+    """Transcribe the metadata"""
+    
+    # Set up the required VR file paths
+    vrfile = vrfile_base + 'properties'
+    vrfile_CPU = vrfile_base + 'catalog_particles.unbound'
+    vrfile_CP = vrfile_base + 'catalog_particles'
+    vrfile_prof = vrfile_base + 'profiles'
 
-f_in.copy('Configuration', f_out)
-f_in.copy('SimulationInfo', f_out)
-f_in.copy('UnitInfo', f_out)
+    # Copy the Header groups.
+    # In future, this should be done properly, converting strings to numbers...
+    f_in = h5.File(vrfile, 'r')
+    f_out = h5.File(outfile, 'w')
+    f_in.copy('Configuration', f_out)
+    f_in.copy('SimulationInfo', f_out)
+    f_in.copy('UnitInfo', f_out)
+    f_in.close()
+    f_out.close()
 
-f_in.close()
-f_out.close()
+    # Read metadata stored in datasets
+    num_haloes_total = read_data(vrfile, 'Total_num_of_groups')[0]
+    num_haloes = read_data(vrfile, 'Num_of_groups')[0]         # Note confusing nomenclature
+    num_groups = read_data(vrfile_prof, 'Num_of_halos')[0]     # ....
+    num_groups_total = read_data(vrfile_prof, 'Total_num_of_halos')[0]     # ....
+    file_id = read_data(vrfile, 'File_id')[0]
+    file_num = read_data(vrfile, 'Num_of_files')[0]
+    num_bound = read_data(vrfile_CP, 'Num_of_particles_in_groups')[0]
+    num_bound_total = read_data(vrfile_CP, 'Total_num_of_particles_in_all_groups')[0]
+    num_unbound = read_data(vrfile_CPU, 'Num_of_particles_in_groups')[0]
+    num_unbound_total = read_data(vrfile_CPU, 'Total_num_of_particles_in_all_groups')[0]
+    flag_inclusive_profiles = read_data(vrfile_prof, 'Inclusive_profiles_flag')[0]
+    num_bin_edges = read_data(vrfile_prof, 'Num_of_bin_edges')[0]
+    radial_bin_edges = read_data(vrfile_prof, 'Radial_bin_edges')
+    type_radial_bins = read_data(vrfile_prof, 'Radial_norm')[0]
+
+    # Write general metadata to 'Header'
+    write_attribute(outfile, 'Header', 'NumberOfHaloes', num_haloes)
+    write_attribute(outfile, 'Header', 'NumberOfHaloes_Total', num_haloes_total)
+    write_attribute(outfile, 'Header', 'NumberOfGroups', num_groups)
+    write_attribute(outfile, 'Header', 'NumberOfGroups_Total', num_groups_total)
+    write_attribute(outfile, 'Header', 'NumberOfFiles', file_num)
+    write_attribute(outfile, 'Header', 'FileID', file_id)
+    write_attribute(outfile, 'Header', 'NumberOfBoundParticles', num_bound)
+    write_attribute(outfile, 'Header', 'NumberOfBoundParticles_Total', num_bound_total)
+    write_attribute(outfile, 'Header', 'NumberOfUnboundParticles', num_unbound)
+    write_attribute(outfile, 'Header', 'NumberOfUnboundParticles_Total', num_unbound_total)
+
+    # Write profile-specific metadata directly to that group
+    write_attribute(outfile, 'Profiles', 'Flag_Inclusive', flag_inclusive_profiles)
+    write_attribute(outfile, 'Profiles', 'NumberOfBinEdges', num_bin_edges)
+    write_attribute(outfile, 'Profiles', 'TypeOfBinEdges', type_radial_bins)
+    write_attribute(outfile, 'Profiles', 'RadialBinEdges', radial_bin_edges)
+
+    # Copy Header to particles file
+    f_out = h5.File(outfile, 'r')
+    f_part = h5.File(outfile_particles, 'w')
+    f_out.copy('Header', f_part)
+    f_out.close()
+    f_part.close()
 
 
-num_haloes_total = read_data(vrfile, 'Total_num_of_groups')[0]
-num_haloes = read_data(vrfile, 'Num_of_groups')[0]         # Note confusing nomenclature
-num_groups = read_data(vrfile_prof, 'Num_of_halos')[0]     # ....
-num_groups_total = read_data(vrfile_prof, 'Total_num_of_halos')[0]     # ....
+def transcribe_data(data_list, vrfile, outfile, kind):
+    """Transcribe data sets.
 
-file_id = read_data(vrfile, 'File_id')[0]
-file_num = read_data(vrfile, 'Num_of_files')[0]
-num_bound = read_data(vrfile_CP, 'Num_of_particles_in_groups')[0]
-num_bound_total = read_data(vrfile_CP, 'Total_num_of_particles_in_all_groups')[0]
-num_unbound = read_data(vrfile_CPU, 'Num_of_particles_in_groups')[0]
-num_unbound_total = read_data(vrfile_CPU, 'Total_num_of_particles_in_all_groups')[0]
-
-flag_inclusive_profiles = read_data(vrfile_prof, 'Inclusive_profiles_flag')[0]
-num_bin_edges = read_data(vrfile_prof, 'Num_of_bin_edges')[0]
-radial_bin_edges = read_data(vrfile_prof, 'Radial_bin_edges')
-type_radial_bins = read_data(vrfile_prof, 'Radial_norm')[0]
-
-write_attribute(outfile, 'Header', 'NumberOfHaloes', num_haloes)
-write_attribute(outfile, 'Header', 'NumberOfHaloes_Total', num_haloes_total)
-write_attribute(outfile, 'Header', 'NumberOfGroups', num_groups)
-write_attribute(outfile, 'Header', 'NumberOfGroups_Total', num_groups_total)
-write_attribute(outfile, 'Header', 'NumberOfFiles', file_num)
-write_attribute(outfile, 'Header', 'FileID', file_id)
-write_attribute(outfile, 'Header', 'NumberOfBoundParticles', num_bound)
-write_attribute(outfile, 'Header', 'NumberOfBoundParticles_Total', num_bound_total)
-write_attribute(outfile, 'Header', 'NumberOfUnboundParticles', num_unbound)
-write_attribute(outfile, 'Header', 'NumberOfUnboundParticles_Total', num_unbound_total)
-
-write_attribute(outfile, 'Profiles', 'Flag_Inclusive', flag_inclusive_profiles)
-write_attribute(outfile, 'Profiles', 'NumberOfBinEdges', num_bin_edges)
-write_attribute(outfile, 'Profiles', 'TypeOfBinEdges', type_radial_bins)
-write_attribute(outfile, 'Profiles', 'RadialBinEdges', radial_bin_edges)
-
-f_out = h5.File(outfile, 'r')
-f_part = h5.File(outfile_particles, 'w')
-
-f_out.copy('Header', f_part)
-
-f_out.close()
-f_part.close()
-
-
-# Actually transcribe data...
-
-for ikey in list_simple:
-
-    if len(ikey) < 5: set_trace()
-
-    if ikey[4] is None:
-        types = [None]
-    else:
-        types = ikey[4]
-
-    for itype in types:
-        if itype is None:
-            typefix_in = ''
-            typefix_out = ''
+    Parameters
+    ----------
+    data_list : tuple
+        A list of the transcription keys to process. Each key is a tuple
+        of (VR_name, Out_name, Comment, Conversion_Factor, Type_list).
+    vrfile : str
+        The VR file to transcribe data from.
+    outfile : str
+        The output file to store transcribed data in.
+    kind : str
+        The kind of transcription we are doing. Options are
+            - 'simple' --> scalar data transcription
+            - 'profiles' --> transcribe profile data
+            - 'apertures' --> transcribe aperture measurements
+            - '3darray' --> transcribe 3d array quantities
+            - '3x3matrix' --> transcribe 3x3 matrix quantities
+    """
+    for ikey in data_list:
+        if len(ikey) < 5: set_trace()
+        if len(ikey) > 5 and kind != 'apertures': set_trace()
+            
+        # Deal with possibility of 'None' in Type_list (no type iteration)
+        if ikey[4] is None:
+            types = [None]
         else:
-            typefix_in = type_in[itype]
-            typefix_out = type_out[itype]
+            types = ikey[4]
 
-    vrname = ikey[0] + typefix_in
-    outname = typefix_out + ikey[1]
+        # Iterate over aperture types (only relevant for apertures)
+        if kind == 'apertures':
+            n_proj = 4
+            ap_list = aperture_list
+        else:
+            n_proj = 1
+            ap_list = [None]
 
-    data = read_data(vrfile, vrname, require=True)
-    write_data(outfile, outname, data*ikey[3], comment=ikey[2])
+        for iap in ap_list:
+            for iproj in range(n_proj):
 
+                # Some special treatment for apertures
+                if kind == 'apertures':
+                    if iproj > 0 and ikey[5] is False:
+                        break
 
+                    if iproj == 0:
+                        ap_prefix = 'Aperture_'
+                        ap_outfix = '/'
+                    else:
+                        ap_prefix = f'Projected_aperture_{iproj}_'
+                        ap_outfix = f'/Projection{iproj}/'
+                else:
+                    ap_prefix = ''
+                    ap_outfix = ''
+                        
+                # Iterate over required types
+                for itype in types:
+
+                    # Construct type specifiers in in- and output
+                    if itype is None:
+                        typefix_in = ''
+                        typefix_out = ''
+                    else:
+                        typefix_in = type_in[itype]
+                        typefix_out = type_out[itype]
+
+                    # Adjust comment
+                    if itype is None:
+                        comment = ikey[2].replace('#', '')
+                    else:
+                        comment = ikey[2].replace('#', type_self[itype])
+                
+                    # Construct the full data set names in in- and output
+                    vrname = ikey[0] + typefix_in
+                    outname = typefix_out + ikey[1]
+
+                    # Special case: Profiles
+                    if kind == 'profiles':
+                    outname = f'Profiles/{outname}'
+                
+                    print(f"{vrname} --> {outname}")
+
+                    # Transcribe data
+                    data = read_data(vrfile, vrname, require=True)
+                    if ikey[3] is not None:
+                        data *= ikey[3]
+                    write_data(outfile, outname, data, comment=comment)
+            
+
+                vrname = prefix + ikey[0] + typefix_in + f'_{iap}_kpc'
+                outname = f'ApertureMeasurements' + outfix + f'{iap}kpc/' + typefix_out + ikey[1]
+
+                    
 for ikey in list_profiles:
-
+    print("Profiles...")
+    
     if len(ikey) < 5: set_trace()
+
     if ikey[4] is None:
         data = read_data(vrfile_prof, ikey[0], require=True)
-        write_data(outfile, ikey[1], data*ikey[3], comment=ikey[2])
+        write_data(outfile, f'Profiles/{ikey[1]}', data*ikey[3], comment=ikey[2])
 
     else:
         for itype in ikey[4]:
             data = read_data(vrfile_prof, ikey[0] + type_in[itype], require=True)
-            write_data(outfile, ikey[1] + '/' + type_out[itype], data*ikey[3], comment=ikey[2])
+            write_data(outfile, f'Profiles/{type_out[itype]}/{ikey[1]}', data*ikey[3], comment=ikey[2])
 
 
 for ikey in list_apertures:
@@ -324,7 +412,7 @@ for ikey in list_apertures:
             
             if iproj == 0:
                 prefix = 'Aperture_'
-                outfix = ''
+                outfix = '/'
             else:
                 prefix = f'Projected_aperture_{iproj}_'
                 outfix = f'/Projection{iproj}/'
@@ -344,8 +432,9 @@ for ikey in list_apertures:
                     typefix_out = type_out[itype]
 
                 vrname = prefix + ikey[0] + typefix_in + f'_{iap}_kpc'
-                outname = 'ApertureMeasurements/' + outfix + ikey[1] + typefix_out + f'/{iap}kpc'
-
+                outname = f'ApertureMeasurements' + outfix + f'{iap}kpc/' + typefix_out + ikey[1]
+                print(outname)
+                
                 data = read_data(vrfile, vrname, require=True)
                 write_data(outfile, outname, data*ikey[3], comment=ikey[2])
 
@@ -368,8 +457,9 @@ for ikey in list_3d_array:
             typefix_out = type_out[itype]
 
         vrname = ikey[0] + typefix_in
-        outname = ikey[1] + typefix_out
-
+        outname = typefix_out + ikey[1]
+        print(outname)
+        
         outdata = np.zeros((num_haloes, 3), dtype=np.float32) - 1
 
         for idim in range(3):
@@ -402,8 +492,9 @@ for ikey in list_3d3d_array:
             typefix_out = type_out[itype]
 
         vrname = ikey[0] + typefix_in
-        outname = ikey[1] + typefix_out
-
+        outname = typefix_out + ikey[1]
+        print(outname)
+        
         outdata = np.zeros((num_haloes, 3, 3), dtype=np.float32) - 1
 
         for idim1 in range(3):
