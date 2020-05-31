@@ -181,7 +181,7 @@ plot_sfr(sfrloc_yse25_limNoAGN, 'seagreen', 'YB-Lim-noAGN')
 #plot_sfr(sfrloc_id6, 'red', 'ID6', boxsize = 12)
 #plot_sfr(sfrloc_id7, 'blue', 'ID7', boxsize = 12)
 #plot_sfr(sfrloc_id21, 'black', 'ID21_stdAGN')
-if mode != 'upsilon' and not mode.endswith('colibre') and not mode == 'bugtest-xl' and not mode in ['bugtest-colibre', 'angmomtest-xl', 'buglrtest-xl', 'seedtest-xl']:
+if mode != 'upsilon' and not mode.endswith('colibre') and not mode == 'bugtest-xl' and not mode in ['bugtest-colibre', 'angmomtest-xl', 'buglrtest-xl', 'seedtest-xl', 'newtest-xl']:
     plot_sfr(sfr_file(22), 'gray', 'ID22_noAGN')
 #plot_sfr(sfrloc_id23, 'gold', 'ID12\_f0p10')
 #plot_sfr(sfrloc_id23, 'seagreen', 'ID23\_f0p05')
@@ -198,7 +198,7 @@ if mode == 'mergers':
     plot_sfr(sfr_file(55), 'brown', 'ID55_bugfix', boxsize=25)
 #plot_sfr(sfrloc_id56, 'orange', 'ID56_no-vel-cut', boxsize=25)
 
-if not mode.endswith('colibre') and not mode in ['bugtest-xl', 'bugtest-colibre', 'angmomtest-xl', 'buglrtest-xl', 'seedtest-xl']:
+if not mode.endswith('colibre') and not mode in ['bugtest-xl', 'bugtest-colibre', 'angmomtest-xl', 'buglrtest-xl', 'seedtest-xl', 'newtest-xl']:
     plot_sfr(sfr_file(57), 'red', 'ID57_new-mergers', boxsize=25)
 
 if mode == 'upsilon':
@@ -339,9 +339,20 @@ if mode == 'buglrtest-xl':
 if mode == 'seedtest-xl':
     plot_sfr(sfr_file(22), 'gray', 'ID22_noAGN', boxsize=25, linestyle='-', linewidth=2.0)
     plot_sfr(sfr_file(134), 'cornflowerblue', 'ID134_25Mpc_XL_seed1p5e5', boxsize=25, linestyle='-', linewidth=2.0)
-    plot_sfr(sfr_file(142), 'skyblue', 'ID142_25Mpc_XL_seed1p5e4', boxsize=25, linestyle=':', linewidth=2.0)
+    plot_sfr(sfr_file(147), 'skyblue', 'ID147_25Mpc_XL_seed1p5e4', boxsize=25, linestyle=':', linewidth=2.0)
     plot_sfr(sfr_file(135), 'plum', 'ID135_25Mpc_ups1em3_seed1p5e5', boxsize=25, linestyle='-', linewidth=2.0)
-    plot_sfr(sfr_file(143), 'lightpink', 'ID143_25Mpc_ups1em3_seed1p5e4', boxsize=25, linestyle=':', linewidth=2.0)
+    plot_sfr(sfr_file(148), 'lightpink', 'ID148_25Mpc_ups1em3_seed1p5e4', boxsize=25, linestyle=':', linewidth=2.0)
+
+if mode == 'newtest-xl':
+    plot_sfr(sfr_file(145), 'grey', 'ID145')
+    plot_sfr(sfr_file(172), 'red', 'ID172')
+    plot_sfr(sfr_file(173), 'orange', 'ID173')
+    plot_sfr(sfr_file(174), 'goldenrod', 'ID174')
+    plot_sfr(sfr_file(175), 'limegreen', 'ID175')
+    plot_sfr(sfr_file(176), 'skyblue', 'ID176')
+    plot_sfr(sfr_file(177), 'royalblue', 'ID177')
+    plot_sfr(sfr_file(178), 'purple', 'ID178')
+    
     
 # Add lines indicating (full) snapshots
 for iout, zout in enumerate(output_zred):

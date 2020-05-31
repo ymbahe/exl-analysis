@@ -17,7 +17,6 @@ def main():
     args = parser.parse_args()
 
     n_sims = len(args.sims)
-    n_snaps = len(args.snapshots)
     
     args.bh_fields = ['SubgridMasses']
                       
@@ -48,18 +47,31 @@ def process_sim(isim, args):
             print(f"Could not load data set '{field}'!")
             set_trace()
 
-        hd.write_data(args.outfile, f'ID{isim}/{field}')
+        hd.write_data(args.outfile, f'ID{isim}/{field}', data)
 
     # Copy out metadata fields
     times = hd.read_data(bfile, 'Times')
     redshifts = hd.read_data(bfile, 'Redshifts')
     first_indices = hd.read_data(bfile, 'FirstIndices')
-
+    vr_haloes = hd.read_data(bfile, 'Haloes')
+    vr_halo_mstar = hd.read_data(bfile, 'Halo_MStar')
+    vr_halo_sfr = hd.read_data(bfile, 'Halo_SFR')
+    vr_halo_m200c = hd.read_data(bfile, 'Halo_M200c')
+    vr_halo_types = hd.read_data(bfile, 'HaloTypes')
+    vr_halo_flag = hd.read_data(bfile, 'Flag_MostMassiveInHalo')
+    
     hd.write_data(args.outfile, f'ID{isim}/Times', times)
     hd.write_data(args.outfile, f'ID{isim}/Redshifts', redshifts)
     hd.write_data(args.outfile, f'ID{isim}/FirstIndices', first_indices)
-        
-        
+
+    hd.write_data(args.outfile, f'ID{isim}/Haloes', vr_haloes)
+    hd.write_data(args.outfile, f'ID{isim}/Halo_MStar', vr_halo_mstar)
+    hd.write_data(args.outfile, f'ID{isim}/Halo_SFR', vr_halo_sfr)
+    hd.write_data(args.outfile, f'ID{isim}/Halo_M200c', vr_halo_m200c)
+    hd.write_data(args.outfile, f'ID{isim}/Halo_Types', vr_halo_types)
+    hd.write_data(args.outfile, f'ID{isim}/Halo_FlagMostMassiveBH', vr_halo_flag)
+    
+            
 if __name__ == '__main__':
     main()
     

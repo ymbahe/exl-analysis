@@ -8,24 +8,27 @@ import argparse
 import glob
 from hydrangea.hdf5 import read_data, write_data, write_attribute
 import h5py as h5
+import os
 
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
-parser.add_argument('--sims', type=int, help='Simulation index to transcribe')
+parser.add_argument('--sims', type=int, nargs='+',
+                    help='Simulation index to transcribe')
 #parser.add_argument('snapshot', type=int, help='Snapshot to transcribe')
-parser.add_argument('--snaps', type=int, nargs='+')
+parser.add_argument('--snaps', type=int, nargs='+',
+                    help='Snapshots to transcribe')
+parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
-
 
 # Define the general translation structure
 
-descr_sfr = 'Star formation rates in M_sun / yr'
-descr_mass = 'Mass in M_sun'
-descr_zmet = 'Metal mass fractions'
+descr_sfr = 'Star formation rates [M_sun/yr]'
+descr_mass = 'Masses [M_sun]'
+descr_zmet = 'Metal mass fractions [Solar?]'
 descr_npart = 'Number of particles'
-descr_halfmass = 'Half mass radius in ???'
-descr_veldisp = '1D velocity dispersion in km/s'
-descr_efrac = ''
+descr_halfmass = 'Half mass radii [Mpc]'
+descr_veldisp = '1D velocity dispersions [km/s]'
+descr_efrac = 'Bound fractions'
 descr_ekin = 'Energy'
 descr_epot = 'Energy'
 descr_id = 'Halo ID'
@@ -234,13 +237,19 @@ def main():
     for isim in args.sims:
 
         # Get simulation directory
-        dirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{args.sim}*/')
-        if list(dirs) != 1:
+        dirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{isim}*/')
+        if len(dirs) != 1:
             print(f"Could not unambiguously find directory for simulation "
-                  f"{args.sim}!")
+                  f"{isim}!")
             set_trace()
         wdir = dirs[0]
 
+        print("")
+        print("====================================================================")
+        print(f"=== Processing {wdir} ===")
+        print("====================================================================")        
+        print("")
+        
         for isnap in args.snaps:
             process_snap(wdir, isnap)
 
@@ -248,11 +257,16 @@ def main():
 def process_snap(wdir, isnap):
     """Process one simulation snapshot."""
 
+    global num_haloes
+    global num_groups
+    
     stime = time.time()
+    print("")
     print(f"Transcribing simulation {wdir}, snapshot {isnap}...")
-
+    print("")
+    
     # Form the various VR file names
-    vrfile_base = wdir + f'vr/halos_{args.snapshot:04d}.'
+    vrfile_base = wdir + f'vr/halos_{isnap:04d}.'
     vrfile = vrfile_base + 'properties'
     vrfile_CPU = vrfile_base + 'catalog_particles.unbound'
     vrfile_CP = vrfile_base + 'catalog_particles'
@@ -260,24 +274,40 @@ def process_snap(wdir, isnap):
     vrfile_hierarchy = vrfile_base + 'hierarchy'
 
     # Construct the output files (for main catalogue and for particle info)
-    outfile = wdir + f'vr_{args.snapshot:04d}.hdf5'
-    outfile_particles = wdir + f'vr_{args.snapshot:04d}_particles.hdf5'
+    outfile = wdir + f'vr_{isnap:04d}.hdf5'
+    outfile_particles = wdir + f'vr_{isnap:04d}_particles.hdf5'
 
-    transcribe_metadata(vrfile_base, outfile, outfile_particles)
+    print("Transcribing metadata...")
+    num_haloes, num_groups = transcribe_metadata(
+        vrfile_base, outfile, outfile_particles)
 
+    print("Transcribing apertures...")
     transcribe_data(list_apertures, vrfile, outfile, kind='apertures')
+
+    print("Transcribing scalar quantities...")
     transcribe_data(list_simple, vrfile, outfile)
+
+    print("Transcribing 3D arrays...")
     transcribe_data(list_3d_array, vrfile, outfile, form='3darray')
+
+    print("Transcribing 3x3 matrices...")
     transcribe_data(list_3x3_matrix, vrfile, outfile, form='3x3matrix')
-    transcribe_data(list_hierarchy, vrfile_hierarchy, outfile)
+
+    print("Transcribing scalar quantities from auxiliary files...")
+    transcribe_data(list_other_files, vrfile_base, outfile,
+                    mixed_source=True)
+
+    print("Transcribing particle links...")
     transcribe_data(list_particles, vrfile_base, outfile_particles,
                     mixed_source=True)
-    transcribe_data(list_profiles, vrfile, outfile, kind='profiles')
 
-    print(""
-          f"Finished transcribing simulation {wdir}, snapshot {isnap} "
+    print("Transcribing profiles...")
+    transcribe_data(list_profiles, vrfile_prof, outfile, kind='profiles')
+
+    print("\n"
+          f"Finished transcribing simulation {wdir},\nsnapshot {isnap} "
           f"in {(time.time() - stime):.3f} sec."
-          "")
+          "\n")
 
 
 def transcribe_metadata(vrfile_base, outfile, outfile_particles):
@@ -340,8 +370,10 @@ def transcribe_metadata(vrfile_base, outfile, outfile_particles):
     f_out.close()
     f_part.close()
 
+    return num_haloes, num_groups
 
-def transcribe_data(data_list, vrfile, outfile, kind='simple',
+
+def transcribe_data(data_list, vrfile_in, outfile, kind='simple',
                     form='scalar', mixed_source=False):
     """Transcribe data sets.
 
@@ -350,7 +382,7 @@ def transcribe_data(data_list, vrfile, outfile, kind='simple',
     data_list : tuple
         A list of the transcription keys to process. Each key is a tuple
         of (VR_name, Out_name, Comment, Conversion_Factor, Type_list).
-    vrfile : str
+    vrfile_in : str
         The VR file to transcribe data from.
     outfile : str
         The output file to store transcribed data in.
@@ -383,8 +415,14 @@ def transcribe_data(data_list, vrfile, outfile, kind='simple',
             if len(ikey) < 7:
                 print("Need to specify source file in index 6 for "
                       "mixed source transcription!")
-            vrfile = vrfile + ikey[6]
-
+            vrfile = vrfile_in + ikey[6]
+        else:
+            vrfile = vrfile_in
+            
+        if not os.path.isfile(vrfile):
+            print("Could not find input VR file...")
+            set_trace()
+            
         # Some quantities use capital X/Y/Z in VR...
         if ikey[0] in ['V?c', 'V?cmbp', 'V?cminpot', 
                        '?c', '?cmbp', '?cminpot']:
@@ -448,7 +486,8 @@ def transcribe_data(data_list, vrfile, outfile, kind='simple',
                                    f'{outname}')
 
                     # Transcribe data
-                    print(f"{vrname} --> {outname}")
+                    if args.verbose:
+                        print(f"{vrname} --> {outname}")
 
                     if form == '3darray':
                         outdata = np.zeros((num_haloes, 3), dtype=np.float32)-1
@@ -464,8 +503,8 @@ def transcribe_data(data_list, vrfile, outfile, kind='simple',
                                            dtype=np.float32) - 1                        
                         for idim1 in range(3):
                             for idim2 in range(3):
-                                vrname_dim = 
-                                    vrname.replace('?', dimsyms[idim1]).replace('*', dimsyms[idim2])
+                                vrname_dim = (
+                                    vrname.replace('?', dimsyms[idim1]).replace('*', dimsyms[idim2]))
                                 outdata[:, idim1, idim2] = read_data(
                                     vrfile, vrname_dim, require=True)
                     else:
