@@ -77,7 +77,9 @@ parser.add_argument('--outdir', help='Subdir to store images in',
 parser.add_argument('--scale', type=float, nargs='+', help='Scale range')
 parser.add_argument('--absscale', action='store_true', default=False)
 parser.add_argument('--propersize', action='store_true', default=False)
-parser.add_argument('--imtype', default='temp')
+parser.add_argument('--imtype',
+                    help='Type of image to make. Default: "temp"',
+                    default='temp')
 parser.add_argument('--nobh', action='store_true')
 parser.add_argument('--bhind', action='store_true',
                     help='Show BH indices in image?')
@@ -98,7 +100,9 @@ parser.add_argument('--draw_hsml', action='store_true',
                     help='Draw on Hsml of target BH')
 parser.add_argument('--coda', help='String to include at end of filename',
                     default='')
-
+parser.add_argument('--quantrange', type=float, nargs='+',
+                    default='Default value',
+                    help='Scaling range for secondary quantity (e.g. log T)')
 args = parser.parse_args()
 
 print("Checking argument consistency...")
@@ -135,8 +139,8 @@ if args.bh_ftrange is None:
 if args.bh_mrange is None:
     args.bh_mrange = [0.0, 100.0]
     
-if args.imtype == 'temp' and args.ptype != 0:
-    print("Temperatures only available for gas...")
+if args.imtype in ['temp', 'diffusion_parameters', 'sfr'] and args.ptype != 0:
+    print(f"{args.imtype} is only available for gas.")
     set_trace()
 
 if not args.noplot:
@@ -321,6 +325,8 @@ def image_snap(isnap):
     
     if args.imtype == 'temp':
         quant = datapt.temperatures.value[ind_sel]
+    elif args.imtype == 'diffusion_parameters':
+        quant = datapt.diffusion_parameters.value[ind_sel]
     else:
         quant = mass
 
@@ -386,9 +392,11 @@ def image_snap(isnap):
 
         # Extract surface density in M_sun [/yr] / kpc^2
         sigma = np.log10(image_weight_all[:, :, 1] + 1e-15) - 6
-        if args.ptype == 0 and args.imtype == 'temp':
+        if args.ptype == 0 and args.imtype in ['temp']:
             tmap = np.log10(image_quant[:, :, 1])
-
+        elif args.ptype == 0 and args.imtype in ['diffusion_parameters']:
+            tmap = image_quant[:, :, 1]
+            
     # -----------------
     # Save image data
     # -----------------
@@ -404,7 +412,9 @@ def image_snap(isnap):
             hd.write_data(maploc, 'Sigma', sigma, new=True)
             if args.ptype == 0 and args.imtype == 'temp':
                 hd.write_data(maploc, 'Temperature', tmap)
-
+            elif args.ptype == 0 and args.imtype == 'diffusion_parameters':
+                hd.write_data(maploc, 'DiffusionParameters', tmap)
+                
         hd.write_data(maploc, 'Extent', extent) 
         hd.write_attribute(maploc, 'Header', 'CamPos', camPos)
         hd.write_attribute(maploc, 'Header', 'ImSize', args.imsize)
@@ -472,10 +482,15 @@ def image_snap(isnap):
                     vrange = args.scale            
                 print(f'Sigma range: {vrange[0]:.4f} -- {vrange[1]:.4f}')
                 
-                # Case B: temperature image
-                if args.ptype == 0 and args.imtype == 'temp':
+                # Case B: temperature/diffusion parameter image
+                if args.ptype == 0 and args.imtype in ['temp',
+                                                       'diffusion_parameters']:
+                    if args.imtype == 'temp':
+                        cmap = None
+                    elif args.imtype == 'diffusion_parameters':
+                        cmap = plt.cm.ice
                     clmap_rgb = ir.make_double_image(sigma, tmap, percSigma=vrange,
-                        absSigma=True, rangeQuant=tempRange)
+                        absSigma=True, rangeQuant=args.quantrange,cmap=cmap)
 
                     im = plt.imshow(clmap_rgb, extent=extent,
                                     aspect='equal', interpolation='nearest',
