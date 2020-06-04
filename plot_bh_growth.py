@@ -6,15 +6,18 @@ import os
 import argparse
 import glob
 import hydrangea.hdf5 as hd
+import local
 
 import matplotlib
 matplotlib.use('pdf')
 
+"""
 import matplotlib.font_manager as fm
 fontpath = '/cosma/home/dp004/dc-bahe1/.matplotlib/Palatino.ttc'
 prop = fm.FontProperties(fname=fontpath)
 fname = os.path.split(fontpath)[1]
 matplotlib.rcParams['font.family'] = prop.get_name()
+"""
 
 #matplotlib.rcParams['font.family'] = 'serif'
 #matplotlib.rcParams['font.serif'][0] = 'palatino'
@@ -40,7 +43,7 @@ args = parser.parse_args()
 
 matplotlib.rcParams['lines.linewidth'] = args.linewidth
 
-dirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{args.sim}*/')
+dirs = glob.glob(f'{local.BASE_DIR}/ID{args.sim}*/')
 if len(dirs) != 1:
     print(f"Could not unambiguously find directory for simulation {args.sim}!")
     set_trace()

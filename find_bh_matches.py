@@ -6,6 +6,7 @@ import glob
 import os
 import argparse
 from pdb import set_trace
+import local
 
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
@@ -22,8 +23,8 @@ parser.add_argument('--name2', default='eagle')
 
 args = parser.parse_args()
 
-dirs1 = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{args.sim1}*/')
-dirs2 = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{args.sim2}*/')
+dirs1 = glob.glob(f'{local.BASE_DIR}/ID{args.sim1}*/')
+dirs2 = glob.glob(f'{local.BASE_DIR}/ID{args.sim2}*/')
 if len(dirs1) != 1 or len(dirs2) != 1:
     set_trace()
 wdir1 = dirs1[0]

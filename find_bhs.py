@@ -3,6 +3,7 @@ from pdb import set_trace
 import argparse
 import glob
 import hydrangea.hdf5 as hd
+import local
 
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
@@ -15,7 +16,7 @@ parser.add_argument('--ftrange', type=float, nargs='+', help='Formation aexp ran
 args = parser.parse_args()
 
 
-dirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{args.sim}*/')
+dirs = glob.glob(f'{local.BASE_DIR}/ID{args.sim}*/')
 if len(dirs) != 1:
     print(f"Could not unambiguously find directory for simulation {args.sim}!")
     set_trace()

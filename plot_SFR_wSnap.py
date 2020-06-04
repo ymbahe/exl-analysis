@@ -7,6 +7,7 @@ Created on Mon Oct 14 13:56:13 2019
 """
 
 import sys
+import local
 
 if len(sys.argv) == 1:
     # Select 'mode': 'mergers', 'hostseed', 'colibre', 'upsilon', 'multiphase'
@@ -32,7 +33,7 @@ matplotlib.rcParams['font.serif'][0] = 'palatino'
 matplotlib.rc('text', usetex=False)
 
 # Load output redshifts
-output_list = '/cosma7/data/dp004/dc-bahe1/EXL/output_list.txt'
+output_list = '{local.BASE_DIR}/output_list.txt'
 output_zred = np.array(ascii.read(output_list, format='no_header')['col1'])
 
 # EAGLE RUNS
@@ -41,7 +42,7 @@ sfrloc_e25noAGN = ''
 
 def sfr_file(id):
     """Retrieve the SFR file for a specified run ID."""
-    dirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{id}*/')
+    dirs = glob.glob(f'{local.BASE_DIR}/ID{id}*/')
     if len(dirs) != 1:
         print(f"Could not unambiguously find directory for simulation {args.sim}!")
         set_trace()
@@ -55,7 +56,7 @@ def sfr_file(id):
 
 
 # Define output files
-outdir = '/cosma7/data/dp004/dc-bahe1/EXL/SFR_comparisons/'
+outdir = f'{local.BASE_DIR}/SFR_comparisons/'
 plotloc = outdir + 'SFR-' + mode + '.pdf'
     
 def plot_sfr(loc, color, label, simtype='Swift', boxsize=25, linewidth=1.0, linestyle='-', alpha=1.0):
@@ -94,7 +95,7 @@ def plot_sfr(loc, color, label, simtype='Swift', boxsize=25, linewidth=1.0, line
 fig = plt.figure(figsize = (5.0, 4.5), dpi = None)
 
 h = 0.6777
-obsdir = '/cosma7/data/dp004/dc-bahe1/EXL/SFR_comparisons/observational_data'
+obsdir = f'{local.BASE_DIR}/SFR_comparisons/observational_data'
 
 # SFR Observational data from Hopkins 2004                                                               
 hcorr = np.log10(h) - np.log10(0.7) # h^-2 for SFR, h^-3 for volume                                            

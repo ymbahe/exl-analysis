@@ -6,6 +6,7 @@ import hydrangea.hdf5 as hd
 import glob
 import argparse
 from pdb import set_trace
+import local
 
 def main():
     print("Parsing input arguments...")
@@ -25,7 +26,7 @@ def main():
         print("")
         set_trace()
 
-    args.outfile = f'/cosma7/data/dp004/dc-bahe1/EXL/{args.outfile}'
+    args.outfile = f'{local.BASE_DIR}/{args.outfile}'
     print(args.outfile)
         
     for isim in args.sims:
@@ -35,7 +36,7 @@ def main():
 def process_sim(isim, args):
     """Process one individual simulation"""
 
-    wdirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{isim}*/')
+    wdirs = glob.glob(f'{local.BASE_DIR}/ID{isim}*/')
     if len(wdirs) != 1:
         set_trace()
     wdir = wdirs[0]

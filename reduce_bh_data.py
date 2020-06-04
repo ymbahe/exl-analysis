@@ -8,6 +8,7 @@ import argparse
 import glob
 import time
 import os
+import local
 
 def main():
     """Main program"""
@@ -20,8 +21,8 @@ def main():
     parser.add_argument('--maxsnap', type=int,
         help='Maximum number of outputs (default: 3000)', default=3000)
     parser.add_argument('--basedir', help='Base directory of simulations '
-                        '(default: "/cosma7/data/dp004/dc-bahe1/EXL/")',
-                        default='/cosma7/data/dp004/dc-bahe1/EXL/')
+                        '(default: [LOCAL])',
+                        default=local.BASE_DIR)
     parser.add_argument('--outfile', help='File to store output in (default: '
         '"black_hole_data.hdf5")', default='black_hole_data.hdf5')
     parser.add_argument('--include', help='Only include the listed data sets',

@@ -6,6 +6,7 @@ from pdb import set_trace
 import os
 import argparse
 import glob
+import local
 
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
@@ -19,7 +20,7 @@ parser.add_argument('--linknames', help='Prefix of links (default: "eagle")',
                     default='eagle')
 args = parser.parse_args()
 
-dirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{args.sim}*/')
+dirs = glob.glob(f'{local.BASE_DIR}/ID{args.sim}*/')
 if len(dirs) != 1:
     print(f"Could not unambiguously find directory for simulation {args.sim}!")
     set_trace()

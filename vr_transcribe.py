@@ -9,6 +9,7 @@ import glob
 from hydrangea.hdf5 import read_data, write_data, write_attribute
 import h5py as h5
 import os
+import local
 
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
@@ -237,7 +238,7 @@ def main():
     for isim in args.sims:
 
         # Get simulation directory
-        dirs = glob.glob(f'/cosma7/data/dp004/dc-bahe1/EXL/ID{isim}*/')
+        dirs = glob.glob(f'{local.BASE_NAME}/ID{isim}*/')
         if len(dirs) != 1:
             print(f"Could not unambiguously find directory for simulation "
                   f"{isim}!")
