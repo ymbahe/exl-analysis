@@ -6,9 +6,13 @@ import numpy as np
 import os
 import time
 
+import sys
+sys.path.insert(0, '/home/bahe/python/sim-utils')
+
 import matplotlib
 matplotlib.use('pdf')
 import matplotlib.pyplot as plt
+from pdb import set_trace
 
 import hydrangea as hy
 import hydrangea.hdf5 as hd
@@ -16,7 +20,9 @@ import image_routines as ir
 import extratools as et
 import swiftsimio as sw
 
-from pdb import set_trace
+import unyt
+
+
 
 # ---------- Basic settings: simulation, galaxy, size, type -------------------
 
@@ -39,7 +45,7 @@ scale_hsml_with_age = False
 gas_tmax = None      # Only consider gas below a given T (can be None for all)
 fixedSmoothingLength = 0   # Leave at 0 to compute adaptive smoothing lengths
 desNGB = 58           # Number of neighbours for smoothing calculation    
-tempRange = [4.0, 6.5] # Scaling range for (log) temperature
+tempRange = [4.0, 8.0] # Scaling range for (log) temperature
 kernel_gamma = 1.936492
 xBase = None
 
@@ -63,6 +69,7 @@ parser.add_argument('--campos', type=float, nargs='+',
     help='Centre position (cMpc)')
 parser.add_argument('--cambh', type=int, help='BH index to centre on.')
 parser.add_argument('--cambhid', type=int, help='ID of BH to center on')
+parser.add_argument('--cambhbid', type=int, help='Black-ID of BH to center on')
 parser.add_argument('--varpos', type=float, nargs='+',
     help='Moving frame coordinates (cMpc), [x0, y0, z0, dx, dy, dz]')
 parser.add_argument('--outdir', help='Subdir to store images in',
@@ -87,6 +94,11 @@ parser.add_argument('--noplot', action='store_true',
 parser.add_argument('--nosave', action='store_true',
     help='Do not save image data as HDF5')
 parser.add_argument('--inch', type=float, help='Image size in inch', default=4)
+parser.add_argument('--draw_hsml', action='store_true',
+                    help='Draw on Hsml of target BH')
+parser.add_argument('--coda', help='String to include at end of filename',
+                    default='')
+
 args = parser.parse_args()
 
 print("Checking argument consistency...")
@@ -99,7 +111,10 @@ if not args.rootdir.endswith('/'):
     args.rootdir = args.rootdir + '/'
 
 if args.scale is None:
-    if not args.absscale:
+
+    if args.imtype == 'gri':
+        args.scale = [28.0, 17.0]
+    elif not args.absscale:
         args.scale = [0.1, 99.99]
     elif args.ptype == 0:
         if args.imtype == 'sfr':
@@ -133,10 +148,16 @@ if zsize is None:
     args.zsize = args.imsize
 else:
     args.zsize = zsize
+
+if args.cambhbid is not None:
+    black_file = args.rootdir + 'black_hole_data.hdf5'
+    args.cambhid = hd.read_data(black_file, 'ParticleIDs',
+                                read_index=args.cambhbid)
     
 if not save_maps and args.noplot:
     print("If we don't want any output, we can stop right here.")
     set_trace()
+
     
 args.realimsize = args.imsize
 args.realzsize = args.zsize
@@ -148,7 +169,10 @@ def image_snap(isnap):
     stime = time.time()
 
     plotloc = (args.rootdir +
-               f'{args.outdir}/image_pt{args.ptype}_{args.imtype}_')
+               f'{args.outdir}/image_pt{args.ptype}_{args.imtype}_'
+               f'{args.coda}_')
+    if args.cambhbid is not None:
+        plotloc = plotloc + f'BH-{args.cambhbid}_'
     if not os.path.isdir(os.path.dirname(plotloc)):
         os.makedirs(os.path.dirname(plotloc))
 
@@ -174,14 +198,16 @@ def image_snap(isnap):
     # Snapshot-specific setup
     # -----------------------
 
+            
     # Camera position
+    camPos = None
     if vr_halo >= 0:
         print("Reading camera position from VR catalogue...")
-        vr_file = args.rootdir + f'vr/halos_{isnap:04d}.properties'
-        xc = hd.read_data(vr_file, 'Xcminpot', read_index=vr_halo)
-        yc = hd.read_data(vr_file, 'Ycminpot', read_index=vr_halo)
-        zc = hd.read_data(vr_file, 'Zcminpot', read_index=vr_halo)
-        camPos = np.array([xc, yc, zc])
+        vr_file = args.rootdir + f'vr_{isnap:04d}.hdf5'
+        #xc = hd.read_data(vr_file, 'Xcminpot', read_index=vr_halo)
+        #yc = hd.read_data(vr_file, 'Ycminpot', read_index=vr_halo)
+        #zc = hd.read_data(vr_file, 'Zcminpot', read_index=vr_halo)
+        camPos = hd.read_data(vr_file, 'MinimumPotential/Coordinates')
 
     elif args.varpos is not None:
         print("Find camera position...")
@@ -192,10 +218,10 @@ def image_snap(isnap):
                            args.varpos[1]+args.varpos[4]*time_gyr,
                            args.varpos[2]+args.varpos[5]*time_gyr])*aexp_factor
 
-    elif args.campos is not None:
+    if args.campos is not None:
         camPos = np.array(args.campos) * aexp_factor
-
-    elif args.cambhid is not None:
+        
+    if args.cambhid is not None:
         all_bh_ids = hd.read_data(snapdir, 'PartType5/ParticleIDs')
         args.cambh = np.nonzero(all_bh_ids == args.cambhid)[0]
         if len(args.cambh) != 1:
@@ -203,9 +229,11 @@ def image_snap(isnap):
             set_trace()
         args.cambh = args.cambh[0]
         
-    elif args.cambh is not None:
-        camPos = hd.read_data(snapdir, 'PartType5/Coordinates', read_index=args.cambh)
-        camPos *= aexp_factor
+    if args.cambh is not None:
+        camPos = hd.read_data(snapdir, 'PartType5/Coordinates',
+                              read_index=args.cambh) * aexp_factor
+        args.hsml = hd.read_data(snapdir, 'PartType5/SmoothingLengths',
+                                 read_index=args.cambh) * aexp_factor * kernel_gamma
         
     else:
         print("Setting camera position to box centre...")
@@ -249,7 +277,7 @@ def image_snap(isnap):
             ind_low = np.nonzero(pos[:, idim]/aexp_factor < boxsize/2)[0]
             pos[ind_low, idim] += boxsize*aexp_factor
 
-    for idim in range(0):
+    for idim in range(3):
         print(f"Periodic wrapping in dimension {idim}...")
         flip_dim(idim)
 
@@ -276,11 +304,13 @@ def image_snap(isnap):
     # Read the appropriate 'mass' quantity
     if args.ptype == 0 and args.imtype == 'sfr':
         mass = datapt.star_formation_rates[ind_sel]
-        mass = mass.convert_to_units(unyt.M_sun / unyt.yr).value
-        mass = np.clip(mass, 0, None) # Don't care about last SFR aExp
+        mass.convert_to_units(unyt.Msun / unyt.yr)
+        mass = np.clip(mass.value, 0, None) # Don't care about last SFR aExp
     else:
-        mass = datapt.masses.value[ind_sel]
-       
+        mass = datapt.masses[ind_sel]
+        mass.convert_to_units(unyt.Msun)
+        mass = mass.value
+        
     if args.ptype == 0:
         hsml = (datapt.smoothing_lengths.value[ind_sel] * aexp_factor
                 * kernel_gamma)
@@ -306,8 +336,7 @@ def image_snap(isnap):
         lum_g = et.imaging.stellar_luminosity(m_init, z_star, age_star, 'g')
         lum_r = et.imaging.stellar_luminosity(m_init, z_star, age_star, 'r')
         lum_i = et.imaging.stellar_luminosity(m_init, z_star, age_star, 'i')
-        set_trace()
-        
+
     # ---------------------
     # Generate actual image
     # ---------------------
@@ -355,8 +384,8 @@ def image_snap(isnap):
             treeAllocFac=10, xBase=xBase, yBase=yBase, zBase=zBase,
             zrange=[-args.zsize, args.zsize])
 
-        # Extract surface density in M_sun / kpc^2
-        sigma = np.log10(image_weight_all[:, :, 1] + 1e-15) + 4
+        # Extract surface density in M_sun [/yr] / kpc^2
+        sigma = np.log10(image_weight_all[:, :, 1] + 1e-15) - 6
         if args.ptype == 0 and args.imtype == 'temp':
             tmap = np.log10(image_quant[:, :, 1])
 
@@ -429,7 +458,6 @@ def image_snap(isnap):
                     ((-map_maas_r)-vmin[1])/((vmax[1]-vmin[1])), 0, 1)
                 clmap_rgb[:, :, 0] = np.clip(
                     ((-map_maas_i)-vmin[2])/((vmax[2]-vmin[2])), 0, 1)
-                set_trace()
                 
                 im = plt.imshow(clmap_rgb, extent=extent, aspect='equal',
                     interpolation='nearest', origin='lower', alpha=1.0)
@@ -459,7 +487,7 @@ def image_snap(isnap):
                         if args.imtype == 'hi':
                             cmap = plt.cm.bone
                         elif args.imtype == 'sfr':
-                            cmap = plt.cm.viridis
+                            cmap = plt.cm.magma
                         else:
                             cmap = plt.cm.inferno
 
@@ -519,16 +547,24 @@ def image_snap(isnap):
                              f'{ibh}', color=c, fontsize=4,
                              va='bottom', ha='left')
 
+            if args.draw_hsml:
+                phi = np.arange(0, 2.01*np.pi, 0.01)
+                plt.plot(args.hsml * np.cos(phi),
+                         args.hsml * np.sin(phi),
+                         color='white', linestyle=':', linewidth=0.5)
+                
+                    
             # Add colour bar for BH masses                        
-            ax2 = fig.add_axes([0.6, 0.07, 0.35, 0.02])
-            ax2.set_xticks([])
-            ax2.set_yticks([])
-            cbar = plt.colorbar(sc, cax=ax2, orientation='horizontal',
-                                ticks=bticks)
-            cbar.ax.tick_params(labelsize=8)
-            fig.text(0.775, 0.1, blabel,
-                     rotation=0.0, va='bottom', ha='center', color='white',
-                     fontsize=8)
+            if args.imtype != 'sfr':
+                ax2 = fig.add_axes([0.6, 0.07, 0.35, 0.02])
+                ax2.set_xticks([])
+                ax2.set_yticks([])
+                cbar = plt.colorbar(sc, cax=ax2, orientation='horizontal',
+                                    ticks=bticks)
+                cbar.ax.tick_params(labelsize=8)
+                fig.text(0.775, 0.1, blabel,
+                         rotation=0.0, va='bottom', ha='center', color='white',
+                         fontsize=8)
 
         # Done with main image, some embellishments...
         plt.sca(ax)
@@ -547,7 +583,7 @@ def image_snap(isnap):
             ax2.set_xticks([])
             ax2.set_yticks([])
 
-            scc = plt.scatter([-1e10], [-1e10], c=[0], cmap=plt.cm.viridis,
+            scc = plt.scatter([-1e10], [-1e10], c=[0], cmap=plt.cm.magma,
                              vmin=vrange[0], vmax=vrange[1])
             cbar = plt.colorbar(scc, cax=ax2, orientation='horizontal',
                                 ticks=np.linspace(np.floor(vrange[0]),
