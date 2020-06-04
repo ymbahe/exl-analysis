@@ -202,8 +202,6 @@ def connect_to_galaxies(bpart_ids, args):
     gal_props['M200'][ind_in_halo] = vr_m200c[bh_halo[ind_in_halo]]
     gal_props['HaloTypes'][ind_in_halo] = vr_haloTypes[bh_halo[ind_in_halo]]
 
-    set_trace()
-    
     return gal_props
 
 
