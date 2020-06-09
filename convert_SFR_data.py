@@ -7,23 +7,61 @@ import sys
 import glob
 from pdb import set_trace
 import time
+import argparse
+import local
+import os
 
 def main():
 
-    for sim_id_str in sys.argv[1:]:
-        sim_id = int(sim_id_str)
-        sim_dir = glob.glob(f'ID{sim_id}*/')
+    print("Parsing input arguments...")
+    parser = argparse.ArgumentParser(description="Parse input parameters.")
+    parser.add_argument('sims', help='Simulation index (or indices) or names to analyse',
+                        nargs='+')
+    parser.add_argument('--basedir', help='Base directory of simulations '
+                        '(default: [LOCAL])',
+                        default=local.BASE_DIR)
+    parser.add_argument('--outfile', help='File to store output in (default: '
+        '"SFR.hdf5")', default='SFR.hdf5')
+    args = parser.parse_args()
 
-        if len(sim_dir) != 1:
-            print(f"No (unique) match for sim ID {sim_id}..")
-            set_trace()
-            
-        sfr_file = sim_dir[0] + '/SFR.txt'
-        convert_sfr(sfr_file)
+    if args.sims[0].lower() == 'all':
+        args.sims = glob.glob(f'{args.basedir}/*')
+        is_full_path = True
+    else:
+        is_full_path = False
+        
+    for sim_id_str in args.sims:
+
+        if is_full_path:
+            wdir = sim_id_str
+        else:
+            try:
+                sim_id = int(sim_id_str)
+                sim_dirs = glob.glob(f'{args.basedir}/ID{sim_id}*/')
+                if len(sim_dirs) != 1:
+                    print(f"No (unique) match for sim ID {sim_id}..")
+                    set_trace()
+                wdir = sim_dirs[0]
+
+            except:
+                sim_id = sim_id_str
+                wdir = f'{args.basedir}/{sim_id}/'
+
+        if not os.path.isdir(wdir):
+            continue
                 
-def convert_sfr(ascii_file, sim_type='swift', unit_sfr=1.022690e-2):
+        sfr_file = wdir + '/SFR.txt'
+        out_file = wdir + '/' + args.outfile
 
-    hdf5_file = '.'.join(ascii_file.split('.')[:-1]) + '.hdf5'
+        if not os.path.isdir(os.path.dirname(out_file)):
+            os.makedirs(os.path.dirname(out_file))
+        
+        if os.path.isfile(sfr_file):
+            convert_sfr(sfr_file, out_file)
+                
+def convert_sfr(ascii_file, hdf5_file, sim_type='swift', unit_sfr=1.022690e-2):
+
+    #hdf5_file = '.'.join(ascii_file.split('.')[:-1]) + '.hdf5'
 
     stime = time.time()
     print(f"Reading file '{ascii_file}'...", end='', flush=True)

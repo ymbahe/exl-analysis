@@ -6,6 +6,8 @@ import hydrangea.hdf5 as hd
 import os
 import local
 
+from reduce_bh_data import connect_to_galaxies
+
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
 mpl.use('pdf')
@@ -17,9 +19,9 @@ import matplotlib.pyplot as plt
 
 # Define general settings
 
-simdir = f'{local.BASE_DIR}/ID145_E25_xlrepos/'
-sim = 145
-snapshot = 36
+simdir = f'{local.BASE_DIR}/ID179_JE25/'
+sim = 179
+snapshot = 24
 
 black_file = simdir + 'black_hole_data.hdf5'
 bh_maxflag = hd.read_data(black_file, 'Flag_MostMassiveInHalo')
@@ -27,6 +29,7 @@ bh_mstar = hd.read_data(black_file, 'Halo_MStar')
 bh_m200 = hd.read_data(black_file, 'Halo_M200c')
 bh_sfr = hd.read_data(black_file, 'Halo_SFR')
 bh_halotype = hd.read_data(black_file, 'HaloTypes')
+bh_ids = hd.read_data(black_file, 'ParticleIDs')
 
 bh_logssfr = np.log10(bh_sfr) - np.log10(bh_mstar)
 
@@ -41,14 +44,19 @@ print(f"Min/max log M200 = {np.log10(np.min(bh_m200[bh_list]))}, "
 
 def main():
 
+    args = type('test', (object,), {})()
+    args.wdir = simdir
+    args.vrsnap = snapshot
+    vr_data = connect_to_galaxies(bh_ids[bh_list], args)
+    
     for ibh in bh_list:
-        make_plot(ibh)
+        make_plot_mstar_m200(ibh, args, vr_data)
 
-        
-def make_plot(ibh):
+
+def make_plot_mstar_m200(ibh, args, vr_data):
     """Make plot for individual BH."""
 
-    plotloc_bh = simdir + f'gallery/mstar-m200-ssfr_bh-bid-{ibh}.png'
+    plotloc_bh = simdir + f'gallery/mstar-m200-ssfr_bh-bid-{ibh}_snap-{snapshot}.png'
     
     fig = plt.figure(figsize=(5.5, 4.5))
 
@@ -58,21 +66,24 @@ def make_plot(ibh):
     ind_this = np.nonzero(bh_list == ibh)[0][0]
     alpha[ind_this] = 1
 
-    for iibh in bh_list:
+    for iibh, iibh_id in enumerate(bh_list):
 
-        if iibh == ibh:
+        if iibh_id == ibh:
             alpha, s, edgecolor = 1.0, 50.0, 'red'
         else:
             alpha, s, edgecolor = 1.0, 15.0, 'none'
 
-        sc=plt.scatter([np.log10(bh_m200[iibh])],
-                       [np.log10(bh_mstar[iibh])],
-                       c=[bh_logssfr[iibh]], cmap=plt.cm.viridis,
-                       vmin=-12.5, vmax=-10.0,
+        logm200 = np.log10(vr_data['M200'][iibh])
+        logmstar = np.log10(vr_data['MStar'][iibh])
+        logssfr = np.log10(vr_data['SFR'][iibh]) - logmstar
+            
+        sc=plt.scatter([logm200], [logmstar],
+                       c=[logssfr], cmap=plt.cm.viridis,
+                       vmin=-12.5+0.6*args.vr_zred, vmax=-10.0+0.6*args.vr_zred,
                        alpha=alpha, s=s,
                        edgecolor=edgecolor)
 
-        if iibh == ibh:
+        if iibh_id == ibh:
             sc_keep = sc
         
     ax = plt.gca()

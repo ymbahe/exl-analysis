@@ -13,12 +13,20 @@ import local
 
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
-parser.add_argument('--sims', type=int, nargs='+',
-                    help='Simulation index to transcribe')
+parser.add_argument('--sims',
+                    help='Simulation index/names to transcribe', nargs='+')
 #parser.add_argument('snapshot', type=int, help='Snapshot to transcribe')
 parser.add_argument('--snaps', type=int, nargs='+',
                     help='Snapshots to transcribe')
+parser.add_argument('--vr_snaps', type=int, nargs='+',
+                    help='Snapshot indices of input VR catalogues.')
 parser.add_argument('--verbose', action='store_true')
+parser.add_argument('--vr_name', help='Name prefix of VR files',
+                    default='halos')
+parser.add_argument('--out_file', default='vr',
+                    help='Output file prefix (default: "vr")')
+parser.add_argument('--base_dir', default=local.BASE_DIR)
+
 args = parser.parse_args()
 
 # Define the general translation structure
@@ -235,27 +243,33 @@ list_profiles = [
 
 def main():
     """Main loop over simulations and snapshots."""
+
+    have_full_sim_dir = False   # May expand later
+
     for isim in args.sims:
 
-        # Get simulation directory
-        dirs = glob.glob(f'{local.BASE_NAME}/ID{isim}*/')
-        if len(dirs) != 1:
-            print(f"Could not unambiguously find directory for simulation "
-                  f"{isim}!")
-            set_trace()
-        wdir = dirs[0]
-
+        if have_full_sim_dir:
+            wdir = isim
+        else:
+            wdir = local.get_sim_dir(args.base_dir, isim)
+        
         print("")
         print("====================================================================")
         print(f"=== Processing {wdir} ===")
         print("====================================================================")        
         print("")
         
-        for isnap in args.snaps:
-            process_snap(wdir, isnap)
+        for iisnap, isnap in enumerate(args.snaps):
+
+            if args.vr_snaps is None:
+                ivsnap = None
+            else:
+                ivsnap = args.vr_snaps[iisnap]
+                
+            process_snap(wdir, args.out_file, isnap, ivsnap)
 
 
-def process_snap(wdir, isnap):
+def process_snap(wdir, out_file_base, isnap, ivsnap):
     """Process one simulation snapshot."""
 
     global num_haloes
@@ -264,10 +278,13 @@ def process_snap(wdir, isnap):
     stime = time.time()
     print("")
     print(f"Transcribing simulation {wdir}, snapshot {isnap}...")
+    if ivsnap is not None:
+        print(f"... fetching VR snapshot {ivsnap} ...")
+
     print("")
     
     # Form the various VR file names
-    vrfile_base = wdir + f'vr/halos_{isnap:04d}.'
+    vrfile_base = wdir + f'{args.vr_name}_{ivsnap:04d}.'
     vrfile = vrfile_base + 'properties'
     vrfile_CPU = vrfile_base + 'catalog_particles.unbound'
     vrfile_CP = vrfile_base + 'catalog_particles'
@@ -275,8 +292,8 @@ def process_snap(wdir, isnap):
     vrfile_hierarchy = vrfile_base + 'hierarchy'
 
     # Construct the output files (for main catalogue and for particle info)
-    outfile = wdir + f'vr_{isnap:04d}.hdf5'
-    outfile_particles = wdir + f'vr_{isnap:04d}_particles.hdf5'
+    outfile = wdir + f'{out_file_base}_{isnap:04d}.hdf5'
+    outfile_particles = wdir + f'{out_file_base}_{isnap:04d}_particles.hdf5'
 
     print("Transcribing metadata...")
     num_haloes, num_groups = transcribe_metadata(

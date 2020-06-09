@@ -12,6 +12,7 @@ sys.path.insert(0, '/home/bahe/python/sim-utils')
 import matplotlib
 matplotlib.use('pdf')
 import matplotlib.pyplot as plt
+
 from pdb import set_trace
 
 import hydrangea as hy
@@ -20,8 +21,14 @@ import image_routines as ir
 import extratools as et
 import swiftsimio as sw
 
+import cmocean
 import unyt
 
+matplotlib.rcParams.update(matplotlib.rcParamsDefault)
+plt.style.use('dark_background')
+matplotlib.rcParams['font.family'] = 'serif'
+matplotlib.rcParams['font.serif'][0] = 'palatino'
+matplotlib.rc('text', usetex=True)
 
 
 # ---------- Basic settings: simulation, galaxy, size, type -------------------
@@ -101,8 +108,9 @@ parser.add_argument('--draw_hsml', action='store_true',
 parser.add_argument('--coda', help='String to include at end of filename',
                     default='')
 parser.add_argument('--quantrange', type=float, nargs='+',
-                    default='Default value',
+                    default=tempRange,
                     help='Scaling range for secondary quantity (e.g. log T)')
+parser.add_argument('--no_double_image', action='store_true')
 args = parser.parse_args()
 
 print("Checking argument consistency...")
@@ -142,11 +150,6 @@ if args.bh_mrange is None:
 if args.imtype in ['temp', 'diffusion_parameters', 'sfr'] and args.ptype != 0:
     print(f"{args.imtype} is only available for gas.")
     set_trace()
-
-if not args.noplot:
-    plt.style.use('dark_background')
-    matplotlib.rcParams['font.family'] = 'serif' 
-    matplotlib.rcParams['font.serif'][0] = 'palatino'
 
 if zsize is None:
     args.zsize = args.imsize
@@ -483,12 +486,13 @@ def image_snap(isnap):
                 print(f'Sigma range: {vrange[0]:.4f} -- {vrange[1]:.4f}')
                 
                 # Case B: temperature/diffusion parameter image
-                if args.ptype == 0 and args.imtype in ['temp',
-                                                       'diffusion_parameters']:
+                if (args.ptype == 0
+                    and args.imtype in ['temp', 'diffusion_parameters']
+                    and not args.no_double_image):
                     if args.imtype == 'temp':
                         cmap = None
                     elif args.imtype == 'diffusion_parameters':
-                        cmap = plt.cm.ice
+                        cmap = cmocean.cm.haline
                     clmap_rgb = ir.make_double_image(sigma, tmap, percSigma=vrange,
                         absSigma=True, rangeQuant=args.quantrange,cmap=cmap)
 
@@ -503,6 +507,8 @@ def image_snap(isnap):
                             cmap = plt.cm.bone
                         elif args.imtype == 'sfr':
                             cmap = plt.cm.magma
+                        elif args.imtype == 'diffusion_parameters':
+                            cmap = cmocean.cm.haline
                         else:
                             cmap = plt.cm.inferno
 
@@ -511,8 +517,15 @@ def image_snap(isnap):
                     elif args.ptype == 4:
                         cmap = plt.cm.bone
 
-                    im = plt.imshow(sigma, cmap=cmap,
-                        extent=extent, vmin=vrange[0], vmax=vrange[1],
+                    if args.no_double_image:
+                        plotquant = tmap
+                        vmin, vmax = args.quantrange[0], args.quantrange[1]
+                    else:
+                        plotquant = sigma
+                        vmin, vmax = vrange[0], vrange[1]
+                        
+                    im = plt.imshow(plotquant, cmap=cmap,
+                        extent=extent, vmin=vmin, vmax=vmax,
                         origin='lower', interpolation='nearest', aspect='equal')
 
         # Plot BHs if desired:
@@ -599,7 +612,7 @@ def image_snap(isnap):
             ax2.set_yticks([])
 
             scc = plt.scatter([-1e10], [-1e10], c=[0], cmap=plt.cm.magma,
-                             vmin=vrange[0], vmax=vrange[1])
+                              vmin=vrange[0], vmax=vrange[1])
             cbar = plt.colorbar(scc, cax=ax2, orientation='horizontal',
                                 ticks=np.linspace(np.floor(vrange[0]),
                                                   np.ceil(vrange[1]), 5,

@@ -61,6 +61,8 @@ if not args.simdir.endswith('/'):
 catloc = f'{args.simdir}/black_hole_data.hdf5'
 plotloc_bh = f'{args.simdir}/gallery/bh_growth_tracks_BH-BID-{args.bh_bid}.png'
 
+snap_list = None#'outputs_dt5myr_multi.txt'
+
 # List the black hole selections to be plotted
 # [formation redshift interval | mass interval | selection point | colour]
 selection_list = [[(20.0, 0.0), (5.0, 8.5), 0.0, None],
@@ -91,9 +93,22 @@ bh_props_list = ['SubgridMasses']
 
 sim_list = [(args.sim, '', '', 2.0, '-')]
 
+if snap_list is not None:
+    snap_data = ascii.read(args.simdir + snap_list)
+    snap_zred = np.array(snap_data['col1'])
+    snap_type = np.array(snap_data['col2'])
+
+    ind_fullsnap = np.nonzero(snap_type == 1)[0]
+    zred_snaps = snap_zred[ind_fullsnap]
+    times_snaps = cosmo.age(zred_snaps).value
+else:
+    times_snaps = []
+
 # ------------------------
 # Plot I: BH growth tracks
 # ------------------------
+
+
 
 fig = plt.figure(figsize=(5.0, 4.5))
 
@@ -135,6 +150,15 @@ for iibhl, ibhl in enumerate(bh_props_list):
     ax1b.set_xlim(xr)
     ax1b.set_ylim(yr)
 
+    for iisnap, istime in enumerate(times_snaps):
+        if iisnap in [9, 18, 24, 25, 30, 33, 36]:
+            lwfac = 3
+        else:
+            lwfac = 1
+        plt.plot((istime, istime), yr, linestyle=':', color='grey',
+                 linewidth=0.5*lwfac)
+        plt.text(istime, yr[1]-(yr[1]-yr[0])*0.02, f'{iisnap}',
+                 va='top', ha='center', fontsize=4, color='grey')
 
     for iisim, isim in enumerate(sim_list):
         

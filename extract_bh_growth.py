@@ -11,10 +11,12 @@ import local
 def main():
     print("Parsing input arguments...")
     parser = argparse.ArgumentParser(description="Parse input parameters.")
-    parser.add_argument('--sims', type=int,
+    parser.add_argument('--sims',
                         help='Simulation indices to process.', nargs='+')
     parser.add_argument('--outfile', help='Name of output catalogue.',
-                        default='bh_growth.hdf5')
+                        default=f'{local.BASE_DIR}/bh_growth.hdf5')
+    parser.add_argument('--basedir', default=local.BASE_DIR)
+    parser.add_argument('--catloc', default='black_hole_data.hdf5')
     args = parser.parse_args()
 
     n_sims = len(args.sims)
@@ -26,7 +28,7 @@ def main():
         print("")
         set_trace()
 
-    args.outfile = f'{local.BASE_DIR}/{args.outfile}'
+    args.outfile = f'{args.outfile}'
     print(args.outfile)
         
     for isim in args.sims:
@@ -36,13 +38,17 @@ def main():
 def process_sim(isim, args):
     """Process one individual simulation"""
 
-    wdirs = glob.glob(f'{local.BASE_DIR}/ID{isim}*/')
-    if len(wdirs) != 1:
-        set_trace()
-    wdir = wdirs[0]
-    print(f"Analysing simulation {wdir}...")
+    if isinstance(isim, int):
+        wdirs = glob.glob(f'{args.basedir}/ID{isim}*/')
+        if len(wdirs) != 1:
+            set_trace()
+        wdir = wdirs[0]
+    else:
+        wdir = args.basedir + '/' + isim + '/'
+        print(f"Analysing simulation {wdir}...")
 
-    bfile = wdir + 'black_hole_data.hdf5'
+        
+    bfile = wdir + args.catloc
     if not os.path.isfile(bfile):
         print(f"Could not find BH data file for simulation {isim}.")
         return
@@ -71,14 +77,14 @@ def process_sim(isim, args):
     hd.write_data(args.outfile, f'ID{isim}/Redshifts', redshifts)
     hd.write_data(args.outfile, f'ID{isim}/FirstIndices', first_indices)
 
-    hd.write_data(args.outfile, f'ID{isim}/Haloes', vr_haloes)
-    hd.write_data(args.outfile, f'ID{isim}/Halo_MStar', vr_halo_mstar)
-    hd.write_data(args.outfile, f'ID{isim}/Halo_SFR', vr_halo_sfr)
-    hd.write_data(args.outfile, f'ID{isim}/Halo_M200c', vr_halo_m200c)
-    hd.write_data(args.outfile, f'ID{isim}/Halo_Types', vr_halo_types)
-    hd.write_data(args.outfile, f'ID{isim}/Halo_FlagMostMassiveBH', vr_halo_flag)
-    
-            
+    if vr_haloes is not None:
+        hd.write_data(args.outfile, f'ID{isim}/Haloes', vr_haloes)
+        hd.write_data(args.outfile, f'ID{isim}/Halo_MStar', vr_halo_mstar)
+        hd.write_data(args.outfile, f'ID{isim}/Halo_SFR', vr_halo_sfr)
+        hd.write_data(args.outfile, f'ID{isim}/Halo_M200c', vr_halo_m200c)
+        hd.write_data(args.outfile, f'ID{isim}/Halo_Types', vr_halo_types)
+        hd.write_data(args.outfile, f'ID{isim}/Halo_FlagMostMassiveBH', vr_halo_flag)
+                
 if __name__ == '__main__':
     main()
     

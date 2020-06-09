@@ -15,46 +15,68 @@ def main():
 
     print("Parsing input arguments...")
     parser = argparse.ArgumentParser(description="Parse input parameters.")
-    parser.add_argument('sim', type=int, help='Simulation index to analyse')
-    parser.add_argument('--name', help='Name prefix of simulation outputs '
+    parser.add_argument('sims', help='Simulation inde(x/ices) or names to analyse',
+                        nargs='+')
+    parser.add_argument('--snap_name', help='Name prefix of simulation outputs '
         '(default: "output")', default='output')
-    parser.add_argument('--maxsnap', type=int,
+    parser.add_argument('--max_snap', type=int,
         help='Maximum number of outputs (default: 3000)', default=3000)
-    parser.add_argument('--basedir', help='Base directory of simulations '
+    parser.add_argument('--base_dir', help='Base directory of simulations '
                         '(default: [LOCAL])',
                         default=local.BASE_DIR)
-    parser.add_argument('--outfile', help='File to store output in (default: '
+    parser.add_argument('--full_dir', action='store_true')
+    parser.add_argument('--out_file', help='File to store output in (default: '
         '"black_hole_data.hdf5")', default='black_hole_data.hdf5')
     parser.add_argument('--include', help='Only include the listed data sets',
                         nargs='+')
     parser.add_argument('--exclude', help='Exclude the listed data sets',
                         nargs='+')
-    parser.add_argument('--vrsnap', default=36,
-                        help='Link to VR catalogue in this snapshot')
+    parser.add_argument('--vr_snap', default=36, type=int,
+                        help='Link to VR catalogue in this snapshot '
+                        '(default: 36). Set to -1 to disable VR linking.')
+    parser.add_argument('--vr_file', default='vr',
+                        help='Base name of VR catalogue to use (default: "vr")')
+    parser.add_argument('--combined_vr', action='store_true')
 
+    parser.add_argument('--out_dir')
     args = parser.parse_args()
 
+    
     # Sanity checks on input arguments
-    if not args.basedir.endswith('/'):
-        args.basedir = args.basedir + '/'
+    if not args.base_dir.endswith('/'):
+        args.base_dir = args.base_dir + '/'
+
+    if args.vr_snap < 0:
+        args.vr_snap = None
         
-    args.firstsnap = None
-    args.lastsnap = None
+    if args.sims[0].lower() == 'all':
+        args.sims = local.get_all_sims(args.base_dir)
+        have_full_sim_dir = True
+    elif args.full_dir:
+        have_full_sim_dir = True
+    else:
+        have_full_sim_dir = False
+        
+    for isim in args.sims:
+        process_sim(args, isim, have_full_sim_dir)
 
-    # Construct simulation directory to process
-    dirs = glob.glob(args.basedir + f'ID{args.sim}*/')
-    if len(dirs) != 1:
-        print(f"Could not unambiguously find directory for simulation "
-              f"{args.sim}!")
-        set_trace()
-    args.wdir = dirs[0]
-    if not args.wdir.endswith('/'):
-        args.wdir = args.wdir + '/'
+def process_sim(args, isim, have_full_sim_dir):
+        
+    args.first_snap = None
+    args.last_snap = None
+        
+    if have_full_sim_dir:
+        args.wdir = isim
+    else:
+        args.wdir = local.get_sim_dir(args.base_dir, isim)
 
+    if args.out_dir is None:
+        args.out_dir = args.wdir
+            
     # Find total number of black holes and assign their black-IDs
     bpart_ids, bpart_first_output = find_black_ids(args)
 
-    if args.firstsnap is None:
+    if args.first_snap is None:
         print("Did not find any black holes, aborting.")
         return
 
@@ -72,14 +94,15 @@ def main():
         use_rev_list = False
 
     # Loop through all snapshots and fill output arrays
-    for iisnap, isnap in enumerate(range(args.firstsnap, args.lastsnap+1)):
+    for iisnap, isnap in enumerate(range(args.first_snap, args.last_snap+1)):
         if use_rev_list:
             process_output(iisnap, isnap, output_dict, bpart_ids, args, bpart_rev_ids=bpart_rev_ids)
         else:
             process_output(iisnap, isnap, output_dict, bpart_ids, args, bpart_rev_ids=None)
             
     # Finish galaxy-based analysis
-    finish_galaxy_analysis(output_dict, gal_props, args)
+    if gal_props is not None:
+        finish_galaxy_analysis(output_dict, gal_props, args)
         
     # Write output HDF5 file
     write_output_file(output_dict, comment_dict, bpart_ids, bpart_first_output,
@@ -91,10 +114,15 @@ def find_black_ids(args):
 
     # List holding all black hole particle IDs, starts with zero elements.
     particle_ids_set = set()
+
+    # We only use the above set for efficient finding of new members. Actual
+    # "membership list" is kept in a separate array, so we can keep it aligned
+    # with the list of first snapshots.
+    particle_ids = np.zeros(0, dtype=int)
     first_snaps = np.zeros(0, dtype=int)
     
-    for isnap in range(args.maxsnap+1):
-        snapfile = args.wdir + args.name + f'_{isnap:04d}.hdf5'
+    for isnap in range(args.max_snap+1):
+        snapfile = args.wdir + args.snap_name + f'_{isnap:04d}.hdf5'
         if not os.path.isfile(snapfile):
             continue
 
@@ -107,9 +135,9 @@ def find_black_ids(args):
             #print(f"Processing output {isnap}...")
             bpart_ids = bpart_ids.astype(int)
             # Update first/last-snap-with-BHs tracker
-            args.lastsnap = isnap
-            if args.firstsnap is None:
-                args.firstsnap = isnap
+            args.last_snap = isnap
+            if args.first_snap is None:
+                args.first_snap = isnap
 
         # Check which of these are new to the club
         if len(particle_ids_set) == 0:
@@ -128,16 +156,26 @@ def find_black_ids(args):
         if len(ind_new) > 0:
             for inew in ind_new:
                 particle_ids_set.add(bpart_ids[inew])
-            #particle_ids = np.concatenate((particle_ids, bpart_ids[ind_new]))
+
+            particle_ids = np.concatenate((particle_ids, bpart_ids[ind_new]))
             first_snaps = np.concatenate(
                 (first_snaps, np.zeros(len(ind_new), dtype=int) + isnap))
             
     # Done looping through outputs, report what we caught
-    particle_ids = np.array(list(particle_ids_set))
+    particle_ids_from_set = np.array(list(particle_ids_set))
+
+    if len(particle_ids_from_set) != len(particle_ids):
+        print("Inconsistent number of caught BHs!")
+        set_trace()
+    if np.max(np.abs(np.sort(particle_ids_from_set)
+                     - np.sort(particle_ids))) > 0:
+        print("Inconsistent IDs of caught BHs!")
+        set_trace()
+
     args.num_bhs = len(particle_ids)
-    if args.firstsnap is not None:
-        args.num_bh_snaps = args.lastsnap - args.firstsnap + 1
-        first_snaps -= args.firstsnap
+    if args.first_snap is not None:
+        args.num_bh_snaps = args.last_snap - args.first_snap + 1
+        first_snaps -= args.first_snap
     else:
         args.num_bh_snaps = 0
     print(f"Found a total of {args.num_bhs} black holes in "
@@ -149,13 +187,22 @@ def find_black_ids(args):
 def connect_to_galaxies(bpart_ids, args):
     """Connect black holes to galaxies at z = 0."""
 
-    args.vr_particles = args.wdir + f'vr_{args.vrsnap:04d}_particles.hdf5'
-    args.vr_file = args.wdir + f'vr_{args.vrsnap:04d}.hdf5'
-    aexp = float(hd.read_attribute(args.vr_file, 'SimulationInfo',
+    if args.vr_snap is None:
+        print("Skipping galaxy linking on your request...")
+        return
+
+    if args.combined_vr:
+        args.vr_particles = args.wdir + f'{args.vr_file}_{args.vr_snap:04d}_particles.hdf5'
+        args.vr_outfile = args.wdir + f'{args.vr_file}_{args.vr_snap:04d}.hdf5'
+    else:
+        print("Please transcribe VR catalogue...")
+        set_trace()
+
+    aexp = float(hd.read_attribute(args.vr_outfile, 'SimulationInfo',
                                    'ScaleFactor'))
     args.vr_zred = 1/aexp - 1
 
-    print(f"Connecting to VR snapshot {args.vrsnap} at redshift "
+    print(f"Connecting to VR snapshot {args.vr_snap} at redshift "
           f"{args.vr_zred}...")
     
     # Load VR particle IDs
@@ -188,10 +235,10 @@ def connect_to_galaxies(bpart_ids, args):
     # Add a few key properties of the haloes, for convenience
     ind_in_halo = found_in_vr[ind_good]
 
-    vr_mstar = hd.read_data(args.vr_file, 'ApertureMeasurements/30kpc/Stars/Masses')
-    vr_sfr = hd.read_data(args.vr_file, 'ApertureMeasurements/30kpc/SFR/')
-    vr_m200c = hd.read_data(args.vr_file, 'M200crit')
-    vr_haloTypes = hd.read_data(args.vr_file, 'StructureTypes')
+    vr_mstar = hd.read_data(args.vr_outfile, 'ApertureMeasurements/30kpc/Stars/Masses')
+    vr_sfr = hd.read_data(args.vr_outfile, 'ApertureMeasurements/30kpc/SFR/')
+    vr_m200c = hd.read_data(args.vr_outfile, 'M200crit')
+    vr_haloTypes = hd.read_data(args.vr_outfile, 'StructureTypes')
     
     gal_props['MStar'] = np.zeros(len(bpart_ids))
     gal_props['SFR'] = np.zeros(len(bpart_ids))
@@ -237,7 +284,7 @@ def setup_output(args):
     """Set up a dict of arrays to hold the various black hole data."""
 
     # Get the names of all existing BH data sets
-    snapfile = args.wdir + args.name + f'_{args.firstsnap:04d}.hdf5'
+    snapfile = args.wdir + args.snap_name + f'_{args.first_snap:04d}.hdf5'
     bh_datasets = hd.list_datasets(snapfile, 'PartType5')
     print(f"There are {len(bh_datasets)} BH data sets...")
 
@@ -303,7 +350,7 @@ def process_output(iisnap, isnap, output_dict, bpart_ids, args, bpart_rev_ids=No
         print(f"Transcribing BH data for snapshot {isnap}...")
         stime = time.time()
 
-    snapfile = args.wdir + args.name + f'_{isnap:04d}.hdf5'
+    snapfile = args.wdir + args.snap_name + f'_{isnap:04d}.hdf5'
 
     # Get the names of all data sets to transcribe
     dataset_list = list(output_dict.keys())
@@ -368,41 +415,43 @@ def process_output(iisnap, isnap, output_dict, bpart_ids, args, bpart_rev_ids=No
 def write_output_file(output_dict, comment_dict, bpart_ids,
                       bpart_first_outputs, gal_props, args):
     """Write the completed arrays to an HDF5 file."""
-    print(f"Writing output file '{args.wdir + args.outfile}...'")
+    print(f"Writing output file '{args.out_dir + args.out_file}...'")
 
     dataset_list = list(output_dict.keys())
 
-    hd.write_data(args.wdir + args.outfile, 'ParticleIDs', bpart_ids)
-    hd.write_data(args.wdir + args.outfile, 'FirstIndices', bpart_first_outputs)
-    hd.write_data(args.wdir + args.outfile, 'Redshifts', args.redshifts)
-    hd.write_data(args.wdir + args.outfile, 'Times', args.times)
+    hd.write_data(args.out_dir + args.out_file, 'ParticleIDs', bpart_ids)
+    hd.write_data(args.out_dir + args.out_file, 'FirstIndices', bpart_first_outputs)
+    hd.write_data(args.out_dir + args.out_file, 'Redshifts', args.redshifts)
+    hd.write_data(args.out_dir + args.out_file, 'Times', args.times)
 
-    hd.write_data(args.wdir + args.outfile, 'Haloes', gal_props['halo'],
+    if gal_props is not None:
+    
+        hd.write_data(args.out_dir + args.out_file, 'Haloes', gal_props['halo'],
                   comment='Index of the velociraptor halo containing each '
                           f'black hole at redshift {args.vr_zred:.3f}.')
-    hd.write_data(args.wdir + args.outfile, 'Halo_MStar', gal_props['MStar'],
+        hd.write_data(args.out_dir + args.out_file, 'Halo_MStar', gal_props['MStar'],
                   comment='Stellar mass (< 30kpc) of the halo containing '
                           f'the black holes at redshift {args.vr_zred:.3f} '
                           '[M_sun].')
-    hd.write_data(args.wdir + args.outfile, 'Halo_SFR', gal_props['SFR'],
+        hd.write_data(args.out_dir + args.out_file, 'Halo_SFR', gal_props['SFR'],
                   comment='Star formation rates (< 30kpc) of the halo '
                           'containing the black holes at redshift '
                           f'{args.vr_zred:.3f} [M_sun/yr].')
-    hd.write_data(args.wdir + args.outfile, 'Halo_M200c', gal_props['M200'],
+        hd.write_data(args.out_dir + args.out_file, 'Halo_M200c', gal_props['M200'],
                   comment='Halo virial masses (M200c) of the halo containing '
                           'the black holes at redshift {args.vr_zred:.3f} '
                           '[M_sun].')
-    hd.write_data(args.wdir + args.outfile, 'HaloTypes', gal_props['HaloTypes'],
+        hd.write_data(args.out_dir + args.out_file, 'HaloTypes', gal_props['HaloTypes'],
                   comment='Types of the haloes containing the black holes at '
                           'redshift {args.vr_zred:.3f}. Central haloes have '
                           'a value of 10.')
-    hd.write_data(args.wdir + args.outfile, 'Flag_MostMassiveInHalo',
+        hd.write_data(args.out_dir + args.out_file, 'Flag_MostMassiveInHalo',
                   gal_props['flag_most_massive_bh'],
                   comment='1 if this is the most massive black hole in its '
                           f'halo at redshift {args.vr_zred}, 0 otherwise.')
     
     for dset in dataset_list:
-        hd.write_data(args.wdir + args.outfile, dset, output_dict[dset],
+        hd.write_data(args.out_dir + args.out_file, dset, output_dict[dset],
             comment=comment_dict[dset])
 
     print("...done!")
