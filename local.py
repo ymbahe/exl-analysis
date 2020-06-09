@@ -1,7 +1,7 @@
 import glob
 import os
 
-BASE_DIR = '/cosma7/data/dp004/dc-bahe1/EXL/'
+BASE_DIR = '/Users/bahe/DEVELOPMENT/EXL/DATA/'
 
 def get_sim_dir(base_dir, isim):
     """Construct the directory of a simulation.
