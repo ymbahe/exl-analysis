@@ -41,13 +41,19 @@ def connect_to_galaxies(bpart_ids, wdir, vr_snap, combined_vr=True):
         print("Skipping galaxy linking on your request...")
         return
 
-    if args.combined_vr:
+    if combined_vr:
         vr_particle_file = (f'{args.wdir}{args.vr_file}_'
         	                f'{args.vr_snap:04d}_particles.hdf5')
         vr_main_file = f'{args.wdir}{args.vr_file}_{args.vr_snap:04d}.hdf5'
     else:
         print("Please transcribe VR catalogue...")
         set_trace()
+
+    # Also abort if VR catalogue could not be found
+    if ((not os.path.isfile(vr_particle_file)) or
+    	(not os.path.isfile(vr_main_file))):
+        print(f"VR catalogue for snapshot {vr_snap} does not exist...")
+        return None
 
     # Find redshift of VR catalogue
     aexp = float(hd.read_attribute(vr_main_file, 'SimulationInfo',
