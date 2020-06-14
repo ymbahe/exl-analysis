@@ -28,9 +28,9 @@ def main():
 
     print("Parsing input arguments...")
     parser = argparse.ArgumentParser(description="Parse input parameters.")
+    parser.add_argument('sim', help='Simulation index/name to analyse')
     parser.add_argument('--bh_bid', type=int,
                         help='BID of the black hole to highlight.')
-    parser.add_argument('--sim', help='Simulation index/name to analyse')
     parser.add_argument('--base_dir',
                         help='Base directory of the simulation, default: '
                              f'{local.BASE_DIR}')
