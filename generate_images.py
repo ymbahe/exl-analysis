@@ -5,6 +5,7 @@ import hydrangea.hdf5 as hd
 import os
 import local
 import xltools as xl
+from astropy.cosmology import FlatLambdaCDM
 
 from pdb import set_trace
 
@@ -76,7 +77,14 @@ def main():
     args.wdir = xl.get_sim_dir(args.base_dir, args.sim)
     
     # Find BHs we are intereste in, load data
-    bh_data, bh_list = lookup_bh_data(args)
+    select_list = [
+        ["Halo_M200c", '>=', args.m200_min],
+        ["Halo_MStar", '>=', args.mstar_min],
+        ["Flag_MostMassiveInHalo", '==', 1],
+        ["HaloTypes", '==', 10]
+    ]
+    bh_data, bh_list = xl.lookup_bh_data(args.wdir + args.bh_data_file,
+                                         bh_props_list, select_list)
 
     # Generate the script to auto-generate all the required images
     generate_image_script(args, bh_list)
@@ -87,28 +95,6 @@ def main():
     generate_website(args, bh_data)
 
     
-def lookup_bh_data(args):
-    """Load info from BH file into arrays and find target BHs."""
-
-    bh_file = f'{args.wdir}{args.bh_data_file}'
-    bh_data = {}
-
-    # Load the required data from the evolution tables
-    for idata in bh_props_list:
-        data = hd.read_data(bh_file, idata)
-        bh_data[idata] = data
-
-    # Also, find list of BHs we are interested in (based on z=0 props)
-    bh_list = np.nonzero((bh_maxflag == 1) &
-                         (bh_data['Halo_MStar'] >= args.mstar_min) &
-                         (bh_data['Halo_M200c'] >= args.m200_min) &
-                         (bh_data['HaloTypes'] == 10))[0]
-
-    # Sort BHs by index
-    bh_list = np.sort(bh_list)
-    print(f"There are {len(bh_list)} BHs in selection list.")
-
-    return bh_data, bh_list
 
 
 def generate_image_script(args, bh_list):
