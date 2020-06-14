@@ -5,7 +5,18 @@ import hydrangea.hdf5 as hd
 import hydrangea.crossref as hx
 import glob
 import os
+import operator
 from pdb import set_trace
+
+# Define a dict for string lookup of comparison operators
+ops = {
+    '>': operator.gt,
+    '>=': operator.ge,
+    '<': operator.lt,
+    '<=': operator.le,
+    '==': operator.eq,
+}
+
 
 def connect_to_galaxies(bpart_ids, wdir, vr_snap, combined_vr=True):
     """Connect black holes to galaxies at a specified redshift.
@@ -168,3 +179,55 @@ def get_all_sims(base_dir, base_name=None):
 
     """
 	return [f.path for f in os.scandir(base_dir) if f.is_dir()]
+
+
+def swift_Planck_cosmology():
+	"""Construct a flat FLRW cosmology that is, emprically, close to what
+	   Swift uses as its 'Planck13' cosmology."""
+	H0 = 67.79
+	h = H0/100
+	Oc0 = 0.1187/h**2
+	Ob0 = 0.02214/h**2
+	Om0 = Oc0 + Ob0
+	return FlatLambdaCDM(H0=H0, Om0=Om0, Ob0=Ob0)
+
+
+def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None):
+    """Load info from BH file into arrays and find target BHs."""
+
+    bh_data = {}
+
+    # Load the required data from the evolution tables
+    num_bhs = None
+    for idata in bh_props_list:
+        data = hd.read_data(bh_data_file, idata)
+        bh_data[idata] = data
+        num_bhs = shape(data)[0]
+
+    # Now find the list of BHs we are interested in (based on z=0 props)
+
+    if selection_list is None:
+    	sel = None
+
+    else:
+    	if num_bhs is None:
+    		# Did not load any properties, so cannot select anything. Doh.
+    		print("Cannot select any BHs, because we did not load any data.")
+    		set_trace()
+
+    	sel = np.arange(num_bhs, dtype=int)
+    	for selector in selection_list:
+    		
+    		# Apply requested comparison operation
+    		cmp = ops[selector[1]]
+    		ind_subsel = np.nonzero(cmp(bh_data[selector[0]][sel],
+    			                        selector[2]))[0]
+
+    		# Adjust selection list
+    		sel = sel[ind_subsel]
+
+	    # Sort BHs by index
+	    sel = np.sort(sel)
+	    print(f"There are {len(sel)} BHs in selection list.")
+
+    return bh_data, sel
