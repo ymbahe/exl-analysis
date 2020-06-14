@@ -141,18 +141,19 @@ def get_sim_dir(base_dir, isim):
         forward slash.
     """
 
-    if isinstance(isim, int):
+    try:
         # Case A: simulations labelled ID[xxx]
+        isim_int = int(isim)
         dirs = glob.glob(f'{base_dir}/ID{isim}*/')
 
         # Make sure nothing stupid has happened
         if len(dirs) != 1:
             print(f"Could not unambiguously find directory for simulation "
-                  f"{args.sim}!")
+                  f"ID{isim}!")
             set_trace()
         wdir = dirs[0]
 
-    else:
+    except ValueError:
         # Case B: simulations labelled with string name
         wdir = f'{base_dir}/{isim}'
         
@@ -198,12 +199,20 @@ def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None):
 
     bh_data = {}
 
+    # Make sure all selectors are part of the bh_props_list
+    if selection_list is not None:
+        for isel in selection_list:
+            if isel[0] not in bh_props_list:
+                print(f"Selector '{isel[0]}' was not in requested BH props "
+                      f"list, adding it now...")
+                bh_props_list.append(isel[0])
+    
     # Load the required data from the evolution tables
     num_bhs = None
     for idata in bh_props_list:
         data = hd.read_data(bh_data_file, idata)
         bh_data[idata] = data
-        num_bhs = shape(data)[0]
+        num_bhs = data.shape[0]
 
     # Now find the list of BHs we are interested in (based on z=0 props)
 
@@ -221,9 +230,23 @@ def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None):
             
             # Apply requested comparison operation
             cmp = ops[selector[1]]
-            ind_subsel = np.nonzero(cmp(bh_data[selector[0]][sel],
-                                        selector[2]))[0]
-
+            try:
+                selector_data = bh_data[selector[0]][sel]
+                if len(selector_data.shape) == 1:
+                    ind_subsel = np.nonzero(cmp(bh_data[selector[0]][sel],
+                                                selector[2]))[0]
+                elif len(selector_data.shape) == 2:
+                    ind_subsel = np.nonzero(cmp(selector_data[:, selector[3]],
+                                                selector[2]))
+                else:
+                    print("3+ dimensional selector arrays not yet handled.")
+                    set_trace()
+                    
+            except KeyError:
+                print("Could not locate selector '{selector[0]}' in BH data "
+                      "file.")
+                set_trace()
+                
             # Adjust selection list
             sel = sel[ind_subsel]
 
