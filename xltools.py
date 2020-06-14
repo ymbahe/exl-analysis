@@ -7,6 +7,7 @@ import glob
 import os
 import operator
 from pdb import set_trace
+from astropy.cosmology import FlatLambdaCDM
 
 # Define a dict for string lookup of comparison operators
 ops = {
