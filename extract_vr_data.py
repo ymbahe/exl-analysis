@@ -52,7 +52,7 @@ def main():
         set_trace()
     
     if args.sims[0].lower() == 'all':
-        args.sims = local.get_all_sims(args.base_dir)
+        args.sims = xl.get_all_sims(args.base_dir)
         have_full_sim_dir = True
     else:
         have_full_sim_dir = False
@@ -73,7 +73,7 @@ def process_sim(isim, args, have_full_sim_dir):
             isim = isim[:-1]
         isim = isim.split('/')[-1]
     else:
-        wdir = local.get_sim_dir(args.base_dir, isim)
+        wdir = xl.get_sim_dir(args.base_dir, isim)
 
     print(f"Processing simulation {wdir}...")
 
