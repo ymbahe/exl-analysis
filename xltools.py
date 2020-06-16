@@ -211,8 +211,11 @@ def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None):
     num_bhs = None
     for idata in bh_props_list:
         data = hd.read_data(bh_data_file, idata)
-        bh_data[idata] = data
-        num_bhs = data.shape[0]
+
+        # May not get all data, such as VR links 
+        if data is not None:
+            bh_data[idata] = data
+            num_bhs = data.shape[0]
 
     # Now find the list of BHs we are interested in (based on z=0 props)
 
@@ -243,9 +246,14 @@ def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None):
                     set_trace()
                     
             except KeyError:
-                print("Could not locate selector '{selector[0]}' in BH data "
+                print(f"Could not locate selector '{selector[0]}' in BH data "
                       "file.")
-                set_trace()
+                if 'Halo' in selector[0]:
+                    print("Assuming that halo linking was not done, skipping "
+                          "this comparison.")
+                    continue
+                else:
+                    set_trace()
                 
             # Adjust selection list
             sel = sel[ind_subsel]

@@ -101,22 +101,27 @@ def process_sim(args, isim, have_full_sim_dir):
 
     # Connect black holes to z = 0 galaxies
     # For this, exclude BHs that are not BHs at the linking snapshot.
-    get_vr_props(args)
-    bh_vr_snap = np.argmin(np.abs(args.redshifts - args.vr_zred))
-    print(f"VR snap corresponds to BH output index {bh_vr_snap}.")
-    bpart_ids_mod = np.copy(bpart_ids)
-    ind_nobh = np.nonzero(output_dict['SubgridMasses']
+
+    if args.vr_snap is not None:
+        get_vr_props(args)
+        bh_vr_snap = np.argmin(np.abs(args.redshifts - args.vr_zred))
+        print(f"VR snap corresponds to BH output index {bh_vr_snap}.")
+        bpart_ids_mod = np.copy(bpart_ids)
+        ind_nobh = np.nonzero(output_dict['SubgridMasses']
                                      [:, bh_vr_snap] *.0 != 0)[0]
-    bpart_ids_mod[ind_nobh] = -1
-    gal_props = connect_to_galaxies(bpart_ids_mod, args)
+        bpart_ids_mod[ind_nobh] = -1
+        gal_props = connect_to_galaxies(bpart_ids_mod, args)
             
-    # Finish galaxy-based analysis
-    if gal_props is not None:
-        finish_galaxy_analysis(output_dict, gal_props, args)
-        
+        # Finish galaxy-based analysis
+        if gal_props is not None:
+            finish_galaxy_analysis(output_dict, gal_props, args)
+
+    else:
+        gal_props = None
+            
     # Write output HDF5 file
     write_output_file(output_dict, comment_dict, bpart_ids, bpart_first_output,
-                      gal_props, args)
+                          gal_props, args)
 
 
 def get_vr_props(args):

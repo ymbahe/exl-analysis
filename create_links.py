@@ -7,6 +7,7 @@ import os
 import argparse
 import glob
 import local
+import xltools as xl
 
 def main():
 
@@ -15,8 +16,9 @@ def main():
     parser.add_argument('sims', nargs='+',
                     help='Simulation inde(x/ices) or name(s) to analyse')
     parser.add_argument('list_file', help='Output list file name')
-    parser.add_argument('--base_dir', help='Simulation base directory',
-                        default=local.BASE_DIR)
+    parser.add_argument('--base_dir', default=local.BASE_DIR,
+                        help='Simulation base directory (default: '
+                             f'{local.BASE_DIR})')
     parser.add_argument('--snapshot_type',
                         help='Type code for full snapshots (default: 1)',
                         default='1')
@@ -29,7 +31,7 @@ def main():
     args = parser.parse_args()
 
     if args.sims[0].lower() == 'all':
-        args.sims = local.get_all_sims(args.base_dir)
+        args.sims = xl.get_all_sims(args.base_dir)
         have_full_sim_dir = True
     else:
         have_full_sim_dir = False
@@ -44,7 +46,7 @@ def process_sim(args, isim, have_full_sim_dir):
     if have_full_sim_dir:
         wdir = isim
     else:
-        wdir = local.get_sim_dir(args.base_dir, isim)
+        wdir = xl.get_sim_dir(args.base_dir, isim)
 
     print(f"Processing simulation {wdir}...")
 
