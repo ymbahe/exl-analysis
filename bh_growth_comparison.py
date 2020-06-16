@@ -34,7 +34,7 @@ def main():
     parser.add_argument('--base_dir', default=local.BASE_DIR,
                         help='Base directory of the simulation, default: '
                              f'{local.BASE_DIR}')
-    parser.add_argument('--bh_data_file', default='black_hole_data.hdf5',
+    parser.add_argument('--bh_file', default='black_hole_data.hdf5',
                         help='Name of the file containing the BH data, '
                              'default: "black_hole_data.hdf5"')
     parser.add_argument('--plot_prefix', default='gallery/bh_growth_tracks',
@@ -70,7 +70,7 @@ def main():
     args.wdir = xl.get_sim_dir(args.base_dir, args.sim)
 
     # Name of the input catalogue, containing all the data to plot
-    args.catloc = f'{args.wdir}/black_hole_data.hdf5'
+    args.catloc = f'{args.wdir}{args.bh_file}'
 
     # Find BHs we are intereste in, load data
     select_list = [
@@ -81,9 +81,9 @@ def main():
         select_list.append(['Flag_MostMassiveInHalo', '==', 1])
     if not args.include_satellites:
         select_list.append(['HaloTypes', '==', 10])
-    if args.bh_mass_range is not None:
 
-        zreds = hd.read_data(args.wdir + args.bh_data_file, 'Redshifts')
+    if args.bh_mass_range is not None:
+        zreds = hd.read_data(args.wdir + args.bh_file, 'Redshifts')
         best_index = np.argmin(np.abs(zreds - args.bh_selection_redshift))
         print(f"Best index for redshift {args.bh_selection_redshift} is "
               f"{best_index}.")
@@ -94,7 +94,7 @@ def main():
         select_list.append(
             ['SubgridMasses', '<=', args.bh_mass_range[1]/1e10, best_index])        
         
-    bh_data, bh_list = xl.lookup_bh_data(args.wdir + args.bh_data_file,
+    bh_data, bh_list = xl.lookup_bh_data(args.wdir + args.bh_file,
                                          bh_props_list, select_list)
 
     generate_track_image(args, bh_data, bh_list)
