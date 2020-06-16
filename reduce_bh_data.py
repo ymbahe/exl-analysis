@@ -456,8 +456,8 @@ def process_output(iisnap, isnap, output_dict, bpart_ids, args, bpart_rev_ids=No
 
 def collect_header_data(args):
     """Copy relevant Header/code data sections to output file."""
-    snap_file = args.wdir + args.first_snap + f'_{isnap:04d}.hdf5'
-    out_file = args.out_dir + args_out_file 
+    snap_file = args.wdir + args.snap_name + f'_{args.first_snap:04d}.hdf5'
+    out_file = args.out_dir + args.out_file 
 
     f_snap = h5.File(snap_file, 'r')
     f_out = h5.File(out_file, 'w')
