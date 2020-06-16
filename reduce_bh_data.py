@@ -9,6 +9,7 @@ import glob
 import time
 import os
 import local
+import xltools as xl
 
 def main():
     """Main program"""
@@ -22,7 +23,7 @@ def main():
     parser.add_argument('--max_snap', type=int,
         help='Maximum number of outputs (default: 3000)', default=3000)
     parser.add_argument('--base_dir', help='Base directory of simulations '
-                        '(default: [LOCAL])',
+                                           f'(default: {local.BASE_DIR})',
                         default=local.BASE_DIR)
     parser.add_argument('--full_dir', action='store_true')
     parser.add_argument('--out_file', help='File to store output in (default: '
@@ -36,8 +37,6 @@ def main():
                         '(default: 36). Set to -1 to disable VR linking.')
     parser.add_argument('--vr_file', default='vr',
                         help='Base name of VR catalogue to use (default: "vr")')
-    parser.add_argument('--combined_vr', action='store_true')
-
     parser.add_argument('--out_dir')
     args = parser.parse_args()
 
@@ -50,16 +49,19 @@ def main():
         args.vr_snap = None
         
     if args.sims[0].lower() == 'all':
-        args.sims = local.get_all_sims(args.base_dir)
+        args.sims = xl.get_all_sims(args.base_dir)
         have_full_sim_dir = True
     elif args.full_dir:
         have_full_sim_dir = True
     else:
         have_full_sim_dir = False
+
+    args.combined_vr = True
         
     for isim in args.sims:
         process_sim(args, isim, have_full_sim_dir)
 
+        
 def process_sim(args, isim, have_full_sim_dir):
         
     args.first_snap = None
@@ -68,7 +70,7 @@ def process_sim(args, isim, have_full_sim_dir):
     if have_full_sim_dir:
         args.wdir = isim
     else:
-        args.wdir = local.get_sim_dir(args.base_dir, isim)
+        args.wdir = xl.get_sim_dir(args.base_dir, isim)
 
     if args.out_dir is None:
         args.out_dir = args.wdir
@@ -80,9 +82,6 @@ def process_sim(args, isim, have_full_sim_dir):
         print("Did not find any black holes, aborting.")
         return
 
-    # Connect black holes to z = 0 galaxies
-    gal_props = connect_to_galaxies(bpart_ids, args)
-    
     # Set up output arrays
     output_dict, comment_dict = setup_output(args)
 
@@ -99,6 +98,17 @@ def process_sim(args, isim, have_full_sim_dir):
             process_output(iisnap, isnap, output_dict, bpart_ids, args, bpart_rev_ids=bpart_rev_ids)
         else:
             process_output(iisnap, isnap, output_dict, bpart_ids, args, bpart_rev_ids=None)
+
+    # Connect black holes to z = 0 galaxies
+    # For this, exclude BHs that are not BHs at the linking snapshot.
+    get_vr_props(args)
+    bh_vr_snap = np.argmin(np.abs(args.redshifts - args.vr_zred))
+    print(f"VR snap corresponds to BH output index {bh_vr_snap}.")
+    bpart_ids_mod = np.copy(bpart_ids)
+    ind_nobh = np.nonzero(output_dict['SubgridMasses']
+                                     [:, bh_vr_snap] *.0 != 0)[0]
+    bpart_ids_mod[ind_nobh] = -1
+    gal_props = connect_to_galaxies(bpart_ids_mod, args)
             
     # Finish galaxy-based analysis
     if gal_props is not None:
@@ -109,6 +119,24 @@ def process_sim(args, isim, have_full_sim_dir):
                       gal_props, args)
 
 
+def get_vr_props(args):
+    """Construct VR file names and redshift for matching."""
+
+    if args.vr_snap is None:
+         return
+
+    if args.combined_vr:
+        args.vr_particles = args.wdir + f'{args.vr_file}_{args.vr_snap:04d}_particles.hdf5'
+        args.vr_outfile = args.wdir + f'{args.vr_file}_{args.vr_snap:04d}.hdf5'
+    else:
+        print("Please transcribe VR catalogue...")
+        set_trace()
+
+    aexp = float(hd.read_attribute(args.vr_outfile, 'SimulationInfo',
+                                   'ScaleFactor'))
+    args.vr_zred = 1/aexp - 1
+    
+    
 def find_black_ids(args):
     """Get the IDs of all black holes that ever existed in a simulation."""
 
@@ -270,8 +298,13 @@ def finish_galaxy_analysis(output_dict, gal_props, args):
     for ihalo in haloes_unique:
         if ihalo < 0: continue  # Don't care about out-of-halo BHs
         ind_in_this = np.nonzero(gal_props['halo'] == ihalo)[0]
-        max_in_this = np.argmax(output_dict['SubgridMasses'][ind_in_this,
-                                                             ind_for_vr])
+        msg_thishalo = output_dict['SubgridMasses'][ind_in_this, ind_for_vr]
+        try:
+            max_in_this = np.nanargmax(msg_thishalo)
+        except ValueError:
+            print("Something fishy is going on here.")
+            set_trace()
+            
         flag_most_massive[ind_in_this[max_in_this]] = 1
 
     print("Finished finding most massive BHs per galaxy, took "

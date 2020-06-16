@@ -10,6 +10,7 @@ from hydrangea.hdf5 import read_data, write_data, write_attribute
 import h5py as h5
 import os
 import local
+import xltools as xl
 
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
@@ -251,7 +252,7 @@ def main():
         if have_full_sim_dir:
             wdir = isim
         else:
-            wdir = local.get_sim_dir(args.base_dir, isim)
+            wdir = xl.get_sim_dir(args.base_dir, isim)
         
         print("")
         print("====================================================================")

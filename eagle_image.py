@@ -74,6 +74,8 @@ parser.add_argument('--numpix', type=int,
     help='Number of pixels along one side', default=1000)
 parser.add_argument('--campos', type=float, nargs='+',
     help='Centre position (cMpc)')
+parser.add_argument('--campos_phys', type=float, nargs='+',
+                    help='Centre position (pMpc)')
 parser.add_argument('--cambh', type=int, help='BH index to centre on.')
 parser.add_argument('--cambhid', type=int, help='ID of BH to center on')
 parser.add_argument('--cambhbid', type=int, help='Black-ID of BH to center on')
@@ -151,6 +153,9 @@ if args.imtype in ['temp', 'diffusion_parameters', 'sfr'] and args.ptype != 0:
     print(f"{args.imtype} is only available for gas.")
     set_trace()
 
+if args.nosave:
+    save_maps = False
+    
 if zsize is None:
     args.zsize = args.imsize
 else:
@@ -204,16 +209,12 @@ def image_snap(isnap):
     # -----------------------
     # Snapshot-specific setup
     # -----------------------
-
-            
+  
     # Camera position
     camPos = None
     if vr_halo >= 0:
         print("Reading camera position from VR catalogue...")
         vr_file = args.rootdir + f'vr_{isnap:04d}.hdf5'
-        #xc = hd.read_data(vr_file, 'Xcminpot', read_index=vr_halo)
-        #yc = hd.read_data(vr_file, 'Ycminpot', read_index=vr_halo)
-        #zc = hd.read_data(vr_file, 'Zcminpot', read_index=vr_halo)
         camPos = hd.read_data(vr_file, 'MinimumPotential/Coordinates')
 
     elif args.varpos is not None:
@@ -225,10 +226,12 @@ def image_snap(isnap):
                            args.varpos[1]+args.varpos[4]*time_gyr,
                            args.varpos[2]+args.varpos[5]*time_gyr])*aexp_factor
 
-    if args.campos is not None:
+    elif args.campos is not None:
         camPos = np.array(args.campos) * aexp_factor
+    elif args.campos_phys is not None:
+        camPos = np.array(args.campos)
         
-    if args.cambhid is not None:
+    elif args.cambhid is not None:
         all_bh_ids = hd.read_data(snapdir, 'PartType5/ParticleIDs')
         args.cambh = np.nonzero(all_bh_ids == args.cambhid)[0]
         if len(args.cambh) != 1:
@@ -275,14 +278,16 @@ def image_snap(isnap):
 
     pos = datapt.coordinates.value * aexp_factor
 
-    # Next bit does periodic wrapping, but it's not mature yet...
+    # Next bit does periodic wrapping
     def flip_dim(idim):
-        if camPos[idim]/aexp_factor < min(max_sel/aexp_factor, boxsize/2):
-            ind_high = np.nonzero(pos[:, idim]/aexp_factor > boxsize/2)[0]
-            pos[ind_high, idim] -= boxsize*aexp_factor
-        elif camPos[idim]/aexp_factor > max(25-max_sel/aexp_factor, boxsize/2):
-            ind_low = np.nonzero(pos[:, idim]/aexp_factor < boxsize/2)[0]
-            pos[ind_low, idim] += boxsize*aexp_factor
+        full_box_phys = boxsize * aexp_factor
+        half_box_phys = boxsize * aexp_factor / 2
+        if camPos[idim] < min(max_sel, half_box_phys):
+            ind_high = np.nonzero(pos[:, idim] > half_box_phys)[0]
+            pos[ind_high, idim] -= full_box_phys
+        elif camPos[idim] > max(full_box_phys - max_sel, half_box_phys):
+            ind_low = np.nonzero(pos[:, idim] < half_box_phys)[0]
+            pos[ind_low, idim] += full_box_phys
 
     for idim in range(3):
         print(f"Periodic wrapping in dimension {idim}...")

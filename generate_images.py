@@ -6,6 +6,7 @@ import os
 import local
 import xltools as xl
 from astropy.cosmology import FlatLambdaCDM
+import argparse
 
 from pdb import set_trace
 
@@ -43,10 +44,10 @@ def main():
                         default=local.BASE_DIR)
     parser.add_argument('--bh_mmax', type=float,
                         help='Maximum BH mass, for the scaling in the images '
-                        'in log (M/M_Sun)', default=8.5)
+                        'in log (M/M_Sun), default: 8.5.', default=8.5)
     parser.add_argument('--numpix', type=int,
                         help='Size of images in pixels, default: 1000',
-                        default: 1000)
+                        default=1000)
     parser.add_argument('--mstar_min', type=float,
                         help='Minimum stellar mass of the host galaxy for '
                              'a black hole to be included, in M_Sun '
@@ -56,9 +57,11 @@ def main():
                              'a black hole to be included, in M_Sun '
                              '(default: 0, i.e. select on stellar mass only)',
                              default=0.0)
-    parser.add_argument('--bh_data_file',
+    parser.add_argument('--bh_data_file', default='black_hole_data.hdf5',
                         help='Name of the file containing the BH data, '
                              'default: "black_hole_data.hdf5"')
+    parser.add_argument('--vr_prefix', default='vr',
+                        help='Prefix of (combined) VR catalogue, default: vr.')
     parser.add_argument('--snap_frontpage', type=int,
                         help='Snapshot for images on frontpage (default: 36)',
                         default=36)
@@ -86,15 +89,18 @@ def main():
     bh_data, bh_list = xl.lookup_bh_data(args.wdir + args.bh_data_file,
                                          bh_props_list, select_list)
 
+    if len(bh_list) == 0:
+        print("No black holes selected, aborting.")
+        return
+
+    
     # Generate the script to auto-generate all the required images
     generate_image_script(args, bh_list)
 
     # Generate the script to auto-generate all the tracks
     generate_track_script(args, bh_list)
 
-    generate_website(args, bh_data)
-
-    
+    generate_website(args, bh_data, bh_list)
 
 
 def generate_image_script(args, bh_list):
@@ -158,31 +164,43 @@ def generate_website(args, bh_data, bh_list):
         # Actual BH-specific sites are written one per snapshot.
         for isnap in snap_list:
 
+            if isnap == args.snap_frontpage:
+                zind_bh_frontpage = np.argmin(
+                    np.abs(bh_data['Redshifts'] - snap_zred[isnap]))
+                print(f"BH output index for frontpage is {zind_bh_frontpage}.")
+                set_trace()
+            
             # Need to explicitly connect the BHs to the VR catalogue
             # at the current snapshot, not necessarily in BH catalogue itself.
             # Returns None if VR catalogue does not exist
             vr_data = xl.connect_to_galaxies(bh_data['ParticleIDs'][bh_list],
-                                             args.wdir, isnap)
+                                             args.wdir,
+                                             f'{args.vr_prefix}_{isnap:04d}')
+
             
             # Now process each BH in turn...
             for iibh, ibh in enumerate(bh_list):
 
                 if isnap == args.snap_frontpage:
-                    # Write the entry image for the front page:
-                    zind_bh_frontpage = np.argmin(
-                        np.abs(bh_data['Redshifts'] - snap_zred[isnap]))
-                    m_bh = bh_data['SubgridMasses'][ibh, zind_bh_frontpage]
 
+                    # Write the entry image for the front page:
+                    m_bh = (bh_data['SubgridMasses'][ibh, zind_bh_frontpage]
+                            * 1e10)
+                    if 'Halo_M200c' in bh_data:
+                        m200_bh = bh_data['Halo_M200c'][ibh]
+                    else:
+                        m200_bh = None
+                    print(f"iibh = {iibh}, m_bh = {m_bh} M_Sun")
                     write_gallery_image(
                         writer, ibh, isnap=isnap, size=args.size_frontpage,
-                        m_subgrid=m_bh)
+                        m_subgrid=m_bh, m200=m200_bh)
 
                 # Exctact the halo data we need. Note that vr_data only
                 # contains info for our selected BHs, need to index with iibh
                 if vr_data is not None:
                     vr_bhdata = {}
                     vr_bhdata['log_MStar']  = np.log10(vr_data["MStar"][iibh])
-                    vr_bhdata['log_M200'] = np.log10(vr_data["M200"][iibh])
+                    vr_bhdata['log_M200c'] = np.log10(vr_data["M200c"][iibh])
                     vr_bhdata['SFR'] = vr_data["SFR"][iibh]
                     vr_bhdata['log_sSFR']  = (np.log10(vr_bhdata['SFR'])
                                               - vr_bhdata['log_MStar'])
@@ -195,7 +213,7 @@ def generate_website(args, bh_data, bh_list):
                           ) as writer_bh:
 
                     write_bh_header(writer_bh, ibh, isnap, bh_data, vr_bhdata)
-                    write_bh_plots(writer_bh, ibh, isnap, vr_data)
+                    write_bh_plots(writer_bh, ibh, isnap, bh_list, vr_data)
                     write_bh_images(writer_bh, ibh, isnap)
                     
                     # Add html closing lines to BH site
@@ -205,19 +223,28 @@ def generate_website(args, bh_data, bh_list):
         writer.write('</body>\n</html>\n')
 
 
-def write_gallery_image(writer, ibh, isnap, size, m_subgrid):
+def write_gallery_image(writer, ibh, isnap, size, m_subgrid, m200):
     """Write the front page gallery image for a specific BH."""
 
     curr_im = (f'image_pt0_temp_{get_coda(size)}_'
                f'BH-{ibh}_{isnap:04d}.png')
     m_exp = int(np.log10(m_subgrid))
     m_pre = m_subgrid / 10.0**m_exp
-    
+
+    if m200 is not None:
+        m200_exp = int(np.log10(m200))
+        m200_pre = m200 / 10.0**m200_exp
+            
     writer.write(f'<div class="gallery">\n'
                  f'<div class="desc">Black hole {ibh} '
                  f'(m<sub>BH</sub> = {m_pre:.1f}&times;10<sup>{m_exp}</sup> '
-                 f'M<sub>&#9737</sub>)</div>'
-                 f'<a href="index_bh-{ibh}_snap-{isnap}.html">\n'
+                 f'M<sub>&#9737</sub>')
+    if m200 is None:
+        writer.write(f')</div>')
+    else:
+        writer.write(f', M<sub>200c</sub> = {m200_pre:.1f}&times;10<sup>{m200_exp}</sup> M<sub>&#9737</sub>)</div>')
+
+    writer.write(f'<a href="index_bh-{ibh}_snap-{isnap}.html">\n'
                  f'  <img src="{curr_im}" alt="BH {ibh}" '
                  f'width=300>\n</a>\n'
                  f'</div>\n')
@@ -246,13 +273,13 @@ def write_bh_header(writer, ibh, isnap, bh_data, vr_bhdata):
     
     if vr_bhdata is not None:
         writer.write(f'<h3>log (M<sub>Star</sub> / M<sub>Sun</sub>) = '
-                     f'{vr_bhdata["logmstar"]:.3f} &nbsp &nbsp &nbsp '
+                     f'{vr_bhdata["log_MStar"]:.3f} &nbsp &nbsp &nbsp '
                      f'log(M<sub>200c</sub> / M<sub>Sun</sub>) = '
-                     f'{vr_bhdata["logm200"]:.3f} &nbsp &nbsp &nbsp '
-                     f'SFR = {vr_bhdata["sfr"]:.3f} M<sub>Sun</sub> '
+                     f'{vr_bhdata["log_M200c"]:.3f} &nbsp &nbsp &nbsp '
+                     f'SFR = {vr_bhdata["SFR"]:.3f} M<sub>Sun</sub> '
                      f'yr<sup>-1</sup> &nbsp &nbsp &nbsp '
                      f'log (sSFR / yr<sup>-1</sup>) = '
-                     f'{vr_bhdata["logssfr"]:.3f} </h3>')
+                     f'{vr_bhdata["log_sSFR"]:.3f} </h3>')
 
 
 def write_bh_plots(writer, ibh, isnap, bh_list, vr_data):
@@ -276,13 +303,13 @@ def write_bh_plots(writer, ibh, isnap, bh_list, vr_data):
     # Add a link for each individual BH to the map...
     for ixbh, xbh in enumerate(bh_list):
 
-        if vr_data["M200"][ixbh] <= 0 or vr_data["MStar"][ixbh] <= 0:
+        if vr_data["M200c"][ixbh] <= 0 or vr_data["MStar"][ixbh] <= 0:
             continue
 
-        imx = (np.log10(vr_data["M200"][ixbh])-11.7) / (13.3-11.7)
+        imx = (np.log10(vr_data["M200c"][ixbh]) - 11.7) / (13.3-11.7)
         imx = int((imx*0.67 + 0.15) * (500*5.5/5.0))
 
-        imy = (np.log10(vr_data["MStar"][ixbh])-10.4) / (11.3-10.4)
+        imy = (np.log10(vr_data["MStar"][ixbh]) - 10.4) / (11.3-10.4)
         imy = (imy*0.8 + 0.15) * (500*4.5/5.0)
         imy = int((500*4.5/5.0) - imy)
 
