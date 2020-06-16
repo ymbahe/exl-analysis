@@ -7,6 +7,7 @@ import local
 import xltools as xl
 from astropy.io import ascii
 import argparse
+import os
 
 from pdb import set_trace
 
@@ -54,7 +55,8 @@ def main():
                              'in their galaxy, at the linked snapshot.')
     parser.add_argument('--halo_mstar_range', default=[3e10, 4e11], type=float,
                         help='Min and max stellar mass of host galaxy '
-                             '[M_Sun], default: 3e10, 4e11.')
+                             '[M_Sun], default: 3e10, 4e11.',
+                        nargs='+')
     parser.add_argument('--include_satellites', action='store_true',
                         help='Only show BHs in central haloes, not satellites.')
     parser.add_argument('--show_target_only', action='store_true',
@@ -62,6 +64,9 @@ def main():
                              'that also match the selection criteria.')
     parser.add_argument('--show_median', action='store_true',
                         help='Add the median for all selected BHs.')
+    parser.add_argument('--summary_only', action='store_true',
+                        help='Only generate summary plot, not ones for '
+                             'individual BHs.')
     parser.add_argument('--alpha_others', type=float, default=0.25,
                         help='Alpha value for non-target BHs, default: 0.25')
 
@@ -166,6 +171,9 @@ def generate_track_image(args, bh_data, bh_list, iibh=None):
         plotloc = f'{args.wdir}{args.plot_prefix}_BH-all.png'
     else:
         plotloc = f'{args.wdir}{args.plot_prefix}_BH-BID-{bh_list[iibh]}.png'       
+
+    if not os.path.isdir(os.path.dirname(plotloc)):
+        os.makedirs(os.path.dirname(plotloc))
     plt.savefig(plotloc, dpi = 200, transparent = False)
     plt.close('all')
     
