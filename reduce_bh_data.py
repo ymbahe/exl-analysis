@@ -10,6 +10,7 @@ import time
 import os
 import local
 import xltools as xl
+import h5py as h5
 
 def main():
     """Main program"""
@@ -91,6 +92,9 @@ def process_sim(args, isim, have_full_sim_dir):
         use_rev_list = True
     else:
         use_rev_list = False
+
+    # Retrieve header info from first valid snapshot
+    collect_header_data(args)
 
     # Loop through all snapshots and fill output arrays
     for iisnap, isnap in enumerate(range(args.first_snap, args.last_snap+1)):
@@ -448,6 +452,24 @@ def process_output(iisnap, isnap, output_dict, bpart_ids, args, bpart_rev_ids=No
 
     if iisnap % 50 == 0:
         print(f"... finished in {time.time() - stime:.3f} sec.")
+
+
+def collect_header_data(args):
+    """Copy relevant Header/code data sections to output file."""
+    snap_file = args.wdir + args.first_snap + f'_{isnap:04d}.hdf5'
+    out_file = args.out_dir + args_out_file 
+
+    f_snap = h5.File(snap_file, 'r')
+    f_out = h5.File(out_file, 'w')
+
+    for igrp in ['Header', 'Code', 'Cosmology', 'GravityScheme', 'HydroScheme',
+                 'InternalCodeUnits', 'Parameters', 'PhysicalConstants',
+                 'Policy', 'StarsScheme', 'SubgridScheme', 'Units',
+                 'UnusedParameters']:
+        f_snap.copy(igrp, f_out)
+
+    f_snap.close()
+    f_out.close()
 
 
 def write_output_file(output_dict, comment_dict, bpart_ids,
