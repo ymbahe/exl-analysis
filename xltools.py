@@ -8,6 +8,7 @@ import os
 import operator
 from pdb import set_trace
 from astropy.cosmology import FlatLambdaCDM
+import time
 
 # Define a dict for string lookup of comparison operators
 ops = {
@@ -19,7 +20,7 @@ ops = {
 }
 
 
-def connect_to_galaxies(bpart_ids, wdir, vr_snap, combined_vr=True):
+def connect_to_galaxies(bpart_ids, wdir, vr_file, combined_vr=True):
     """Connect black holes to galaxies at a specified redshift.
 
     Parameters
@@ -28,8 +29,8 @@ def connect_to_galaxies(bpart_ids, wdir, vr_snap, combined_vr=True):
         The IDs of the black hole particle to match.
     wdir : string
         Directory of the simulation to work with
-    vr_snap : int or None
-        Snapshot of the VR catalogue to connect to (None for no matching)
+    vr_file : string
+        VR file to connect to (None for no matching)
     combined_vr : bool, optional
         Flag for using transcribed VR, must currently be True.
 
@@ -49,14 +50,13 @@ def connect_to_galaxies(bpart_ids, wdir, vr_snap, combined_vr=True):
     num_bhs = len(bpart_ids)
     gal_props = {}
 
-    if args.vr_snap is None:
+    if vr_file is None:
         print("Skipping galaxy linking on your request...")
         return
 
     if combined_vr:
-        vr_particle_file = (f'{args.wdir}{args.vr_file}_'
-                            f'{args.vr_snap:04d}_particles.hdf5')
-        vr_main_file = f'{args.wdir}{args.vr_file}_{args.vr_snap:04d}.hdf5'
+        vr_particle_file = f'{wdir}{vr_file}_particles.hdf5'
+        vr_main_file = f'{wdir}{vr_file}.hdf5'
     else:
         print("Please transcribe VR catalogue...")
         set_trace()
@@ -64,14 +64,14 @@ def connect_to_galaxies(bpart_ids, wdir, vr_snap, combined_vr=True):
     # Also abort if VR catalogue could not be found
     if ((not os.path.isfile(vr_particle_file)) or
         (not os.path.isfile(vr_main_file))):
-        print(f"VR catalogue for snapshot {vr_snap} does not exist...")
+        print(f"VR catalogue {vr_file} does not exist...")
         return None
 
     # Find redshift of VR catalogue
     aexp = float(hd.read_attribute(vr_main_file, 'SimulationInfo',
                                    'ScaleFactor'))
     gal_props['Redshift'] = 1/aexp - 1
-    print(f"Connecting to VR snapshot {vr_snap} at redshift "
+    print(f"Connecting to VR catalogue {vr_file} at redshift "
           f"{gal_props['Redshift']}...")
     
     # Load VR particle IDs
@@ -104,11 +104,11 @@ def connect_to_galaxies(bpart_ids, wdir, vr_snap, combined_vr=True):
     # Add a few key properties of the haloes, for convenience
     ind_in_halo = found_in_vr[ind_good]
 
-    vr_mstar = hd.read_data(args.vr_main_file,
+    vr_mstar = hd.read_data(vr_main_file,
                             'ApertureMeasurements/30kpc/Stars/Masses')
-    vr_sfr = hd.read_data(args.vr_main_file, 'ApertureMeasurements/30kpc/SFR/')
-    vr_m200c = hd.read_data(args.vr_main_file, 'M200crit')
-    vr_haloTypes = hd.read_data(args.vr_main_file, 'StructureTypes')
+    vr_sfr = hd.read_data(vr_main_file, 'ApertureMeasurements/30kpc/SFR/')
+    vr_m200c = hd.read_data(vr_main_file, 'M200crit')
+    vr_haloTypes = hd.read_data(vr_main_file, 'StructureTypes')
     
     gal_props['MStar'] = np.zeros(num_bhs) + np.nan
     gal_props['SFR'] = np.zeros(num_bhs) + np.nan
