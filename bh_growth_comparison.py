@@ -103,8 +103,19 @@ def main():
                                          bh_props_list, select_list)
 
     generate_track_image(args, bh_data, bh_list)
-    for iibh, ibh in enumerate(bh_list):
-        generate_track_image(args, bh_data, bh_list, iibh)
+
+    if args.bh_bid is None:
+        # No target specified: process all selected BHs
+        for iibh, ibh in enumerate(bh_list):
+            generate_track_image(args, bh_data, bh_list, iibh)
+    else:
+        # Only plot the selected BH.
+        iibh = np.nonzero(bh_list == args.bh_bid)[0]
+        if len(iibh) == 1:
+            generate_track_image(args, bh_data, bh_list, iibh[0])
+        else:
+            print(f"Could not (unambiguously) find BH-BID {args.bh_bid} "
+                  f"in BH list.")
 
     print("Done!")
 
