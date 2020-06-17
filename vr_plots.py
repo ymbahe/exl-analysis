@@ -30,30 +30,11 @@ ax_labels = {'M200c': r'$\log_{10}\,(M_\mathrm{200c}\,/\,\mathrm{M}_\odot)$',
              'Size': r'Stellar $R_{1/2}$ ($< 30$ kpc$, Proj. 1) [kpc]',
              'sSFR': r'$\log_{10}\,(\mathrm{sSFR}\,/\,\mathrm{yr}^{-1})$'}
 
-
-
-simdir = f'{local.BASE_DIR}/ID179_JE25/'
-sim = 179
-snapshot = 24
-
-black_file = simdir + 'black_hole_data.hdf5'
-bh_maxflag = hd.read_data(black_file, 'Flag_MostMassiveInHalo')
-bh_mstar = hd.read_data(black_file, 'Halo_MStar')
-bh_m200 = hd.read_data(black_file, 'Halo_M200c')
-bh_sfr = hd.read_data(black_file, 'Halo_SFR')
-bh_halotype = hd.read_data(black_file, 'HaloTypes')
-bh_ids = hd.read_data(black_file, 'ParticleIDs')
-
-bh_logssfr = np.log10(bh_sfr) - np.log10(bh_mstar)
-
-bh_list = np.nonzero((bh_maxflag == 1) &
-                     (bh_mstar >= 3e10) &
-                     (bh_halotype == 10))[0]
-
-print(f"There are {len(bh_list)} BHs in selection list.")
-
-print(f"Min/max log M200 = {np.log10(np.min(bh_m200[bh_list]))}, "
-      f"{np.log10(np.max(bh_m200[bh_list]))}")
+plot_ranges = {'M200c': [11.7, 13.5],
+               'MStar': [10.0, 12.0],
+               'MBH': [5.0, 8.5],
+               'Size': [0.0, 10.0],
+               'sSFR': [-12.0, -9.5]}
 
 def main():
 
@@ -234,7 +215,7 @@ def make_plot(args, vr_data, iplot, isnap, iibh, ibh):
     ax.set_ylim(yr)
     ax.set_xlabel(ax_labels[iplot[0]])
     ax.set_ylabel(ax_labels[iplot[1]])
-    vmin, vmax = plot_range[iplot[2]]
+    vmin, vmax = plot_ranges[iplot[2]]
 
     # Extract relevant quantities
     xquant = get_vrquant(vr_data, iplot[0])
