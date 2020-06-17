@@ -238,6 +238,7 @@ def connect_to_galaxies(bpart_ids, args):
     aexp = float(hd.read_attribute(args.vr_outfile, 'SimulationInfo',
                                    'ScaleFactor'))
     args.vr_zred = 1/aexp - 1
+    args.vr_aexp = aexp
 
     print(f"Connecting to VR snapshot {args.vr_snap} at redshift "
           f"{args.vr_zred}...")
@@ -489,6 +490,13 @@ def write_output_file(output_dict, comment_dict, bpart_ids,
         hd.write_data(args.out_dir + args.out_file, 'Haloes', gal_props['halo'],
                   comment='Index of the velociraptor halo containing each '
                           f'black hole at redshift {args.vr_zred:.3f}.')
+        hd.write_attribute(args.out_dir + args.out_file, 'Haloes',
+                           'VR_Snapshot', args.vr_snap)
+        hd.write_attribute(args.out_dir + args.out_file, 'Haloes',
+                           'VR_Redshift', args.vr_zred)
+        hd.write_attribute(args.out_dir + args.out_file, 'Haloes',
+                           'VR_ScaleFactor', args.vr_aexp)
+
         hd.write_data(args.out_dir + args.out_file, 'Halo_MStar', gal_props['MStar'],
                   comment='Stellar mass (< 30kpc) of the halo containing '
                           f'the black holes at redshift {args.vr_zred:.3f} '
