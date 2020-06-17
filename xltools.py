@@ -129,7 +129,7 @@ def connect_to_galaxies(bpart_ids, wdir, vr_file, combined_vr=True,
     if extra_props is not None:
         for iextra in extra_props:
             print(f"Extracting extra quantity '{iextra[0]}' --> "
-                  f"'Halo_{iextra[1]}'")
+                  f"'{iextra[1]}'")
             vr_quant = hd.read_data(vr_main_file, iextra[0])
             gal_props[iextra[1]] = np.zeros(num_bhs) + np.nan
             gal_props[iextra[1]][ind_in_halo] = vr_quant[vr_halo[ind_in_halo]]
