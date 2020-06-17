@@ -20,6 +20,17 @@ mpl.rc('text', usetex=True)
 import matplotlib.pyplot as plt
 
 # Define general settings
+plot_list = [('M200c', 'MStar', 'sSFR'),
+             ('M200c', 'MBH', 'MStar'),
+             ('M200c', 'Size', 'Mstar')]
+
+ax_labels = {'M200c': r'$\log_{10}\,(M_\mathrm{200c}\,/\,\mathrm{M}_\odot)$',
+             'MStar': r'$\log_{10}\,(M_\mathrm{star}\,/\,\mathrm{M}_\odot)$',
+             'MBH': r'$\log_{10}\,(m_\mathrm{BH}\,/\,\mathrm{M}_\odot)$',
+             'Size': r'Stellar $R_{1/2}$ ($< 30$ kpc$, Proj. 1) [kpc]',
+             'sSFR': r'$\log_{10}\,(\mathrm{sSFR}\,/\,\mathrm{yr}^{-1})$'}
+
+
 
 simdir = f'{local.BASE_DIR}/ID179_JE25/'
 sim = 179
@@ -65,7 +76,7 @@ def main():
     parser.add_argument('--bh_file', default="black_hole_data.hdf5",
                         help='Combine BH data file, default: '
                              'black_hole_data.hdf5')
-    parser.add_argument('--plot_prefix', default='gallery/bh_growth_tracks',
+    parser.add_argument('--plot_prefix', default='gallery/vr-plots',
                         help='Prefix of output files, default: '
                              '"gallery/vr_plots')
     parser.add_argument('--bh_mass_range', type=float, nargs='+',
@@ -102,17 +113,14 @@ def main():
     for isim in args.sims:
         process_sim(args, isim, have_full_sim_dir)
 
-    args.vrsnap = snapshot
-    vr_data = connect_to_galaxies(bh_ids[bh_list], args)
-    
-    for ibh in bh_list:
-        make_plot_mstar_m200(ibh, args, vr_data)
-
 
 def process_sim(args, isim, have_full_sim_dir):
     """Generate the images for one particular simulation."""
 
-    args.wdir = xl.get_sim_dir(args.base_dir, isim)
+    if have_full_sim_dir:
+        args.wdir = isim
+    else:
+        args.wdir = xl.get_sim_dir(args.base_dir, isim)
 
     # Name of the input BH data catalogue
     args.catloc = f'{args.wdir}{args.bh_file}'
@@ -138,16 +146,30 @@ def process_sim(args, isim, have_full_sim_dir):
             ['SubgridMasses', '>=', args.bh_mass_range[0]/1e10, best_index])
         select_list.append(
             ['SubgridMasses', '<=', args.bh_mass_range[1]/1e10, best_index])        
-        
+       
+    bh_props_list = ['SubgridMasses', 'Redshifts']    
     bh_data, bh_list = xl.lookup_bh_data(args.wdir + args.bh_file,
                                          bh_props_list, select_list)
+
+    args.sim_pointdata_loc = args.wdir + plot_prefix + '.hdf5'
+    hd.write_data(args.sim_pointdata_loc, 'BlackHoleBIDs', bh_list,
+                  comment='BIDs of all BHs selected for this simulation.')
 
     # Go through snapshots
     for iisnap, isnap in enumerate(args.snapshots):
 
         # Need to explicitly connect BHs to VR catalogue from this snap
-        vr_data = xl.connect_to_galaxies(bh_data['ParticleIDs'][bh_list],
-                                         args.wdir, isnap)
+        vr_data = xl.connect_to_galaxies(
+            bh_data['ParticleIDs'][bh_list], args.wdir, isnap,
+            extra_props=[('ApertureMeasurements/Projection1/30kpc/'
+                          'Stars/HalfMassRadii', 'StellarHalfMassRad')])
+
+        # Add subgrid mass of BHs themselves
+        ind_bh_cat = np.argmin(np.abs(bh_data['Redshifts']
+                                      - vr_data['Redshift']))
+        print(f"Using BH masses from index {ind_bh_cat}")
+        vr_data['BH_SubgridMasses'] = (
+            bh_data['SubgridMasses'][bh_list, ind_bh_cat] * 1e10)
 
         # Make plots for each BH, and "general" overview plot
         generate_vr_plots(args, vr_data, isnap)
@@ -156,7 +178,7 @@ def process_sim(args, isim, have_full_sim_dir):
 
         print("Done!")
 
-
+    
 def generate_vr_plots(args, vr_data, isnap, iibh=None, ibh=None):
     """Driver function to create all plots for one snap and target BH.
 
@@ -174,65 +196,102 @@ def generate_vr_plots(args, vr_data, isnap, iibh=None, ibh=None):
     ibh : int, optional
         Full BH-ID of target BH (only used for output naming).
     """
+    for iiplot, iplot in plot_list:
+        make_plot(args, vr_data, iplot, isnap, iibh, ibh)
 
-    
 
+def make_plot(args, vr_data, iplot, isnap, iibh, ibh):
+    """Make one specific plot.
 
-def make_plot_mstar_m200(ibh, args, vr_data):
-    """Make plot for individual BH."""
-
-    plotloc_bh = simdir + f'gallery/mstar-m200-ssfr_bh-bid-{ibh}_snap-{snapshot}.png'
-    
+    Parameters
+    ----------
+    args : object
+        Configuration parameters read from the arg parser
+    vr_data : dict
+        Relevant VR catalogue data for all BHs to be plotted
+    iplot : int
+        Tuple containing information about the specific plot to make.
+        Content: [x-quant, y-quant, color-quant]
+    isnap : int
+        Snapshot index of this plot; only relevant for output naming.
+    iibh : int, optional
+        BH index of target BH in vr_data. If None (default), no BH is 
+        highlighted especially.
+    ibh : int, optional
+        Full BH-ID of target BH (only used for output naming).
+    """
+    plotloc = (f'{args.wdir}{args.plot_prefix}{iplot[0]}-{iplot[1]}-{iplot[2]}'
+               f'_BH-{ibh}_snap-{isnap}.png')
     fig = plt.figure(figsize=(5.5, 4.5))
 
+    # To enable the HTML link map, we must be able to reconstruct the
+    # location of each point on the plot. This is easier with an explicitly
+    # constructed axes frame ([x_off, y_off, x_width, y_width])
     ax = fig.add_axes([0.15, 0.15, 0.67, 0.8])
-    
-    alpha = np.zeros(len(bh_list)) + 0.2
-    ind_this = np.nonzero(bh_list == ibh)[0][0]
-    alpha[ind_this] = 1
 
-    for iibh, iibh_id in enumerate(bh_list):
+    xr, yr = plot_ranges[iplot[0]], plot_ranges[iplot[1]]
+    ax.set_xlim(xr)
+    ax.set_ylim(yr)
+    ax.set_xlabel(ax_labels[iplot[0]])
+    ax.set_ylabel(ax_labels[iplot[1]])
+    vmin, vmax = plot_range[iplot[2]]
 
-        if iibh_id == ibh:
-            alpha, s, edgecolor = 1.0, 50.0, 'red'
-        else:
-            alpha, s, edgecolor = 1.0, 15.0, 'none'
+    # Extract relevant quantities
+    xquant = get_vrquant(vr_data, iplot[0])
+    yquant = get_vrquant(vr_data, iplot[1])
+    cquant = get_vrquant(vr_data, iplot[2])
 
-        logm200 = np.log10(vr_data['M200'][iibh])
-        logmstar = np.log10(vr_data['MStar'][iibh])
-        logssfr = np.log10(vr_data['SFR'][iibh]) - logmstar
-            
-        sc=plt.scatter([logm200], [logmstar],
-                       c=[logssfr], cmap=plt.cm.viridis,
-                       vmin=-12.5+0.6*args.vr_zred, vmax=-10.0+0.6*args.vr_zred,
-                       alpha=alpha, s=s,
-                       edgecolor=edgecolor)
-
-        if iibh_id == ibh:
-            sc_keep = sc
+    for iixbh in range(len(xquant)):
         
-    ax = plt.gca()
-    ax.set_xlim((11.7, 13.3))
-    ax.set_ylim((10.4, 11.3))
+        # Special treatment for (halo of) to-be-highlighted BH
+        if iixbh == iibh:
+            s, edgecolor = 50.0, 'red'
+        else:
+            s, edgecolor = 15.0, 'none'
 
-    ax.set_xlabel(r'$\log_{10} (M_\mathrm{200c}\,/\,\mathrm{M}_\odot)$')
-    ax.set_ylabel(r'$\log_{10} (M_\mathrm{star}\,/\,\mathrm{M}_\odot)$')
+        sc = plt.scatter([xquant], [yquant], c=[cquant], cmap='plt.cm.viridis',
+                         vmin=vmin, vmax=vmax, s=s, edgecolor=edgecolor)
 
+    # Colour bar on the right-hand side
     ax2 = fig.add_axes([0.82, 0.15, 0.04, 0.8])
     ax2.set_yticks([])
     ax2.set_xticks([])
-    cbar = plt.colorbar(sc_keep, cax=ax2, orientation = 'vertical')
+    cbar = plt.colorbar(sc, cax=ax2, orientation = 'vertical')
+    fig.text(0.99, 0.5, ax_labels[iplot[2]],
+             color='black', rotation=90.0, fontsize=10, ha='right',
+             va='center')
 
-    fig.text(0.99, 0.5, r'$\log_{10}\,(\mathrm{sSFR}\,/\,\mathrm{yr}^{-1})$',
-             color = 'black', rotation = 90.0,
-             fontsize = 10, ha = 'right', va = 'center')
-
-    #cb = plt.colorbar(sc_keep, label = r'$\log_{10}\,(\mathrm{sSFR}\,/\,\mathrm{yr}^{-1})$')
-    
-    #plt.subplots_adjust(left = 0.15, right = 0.95, bottom = 0.15, top = 0.88,
-    #                wspace=0, hspace=0.35)
     plt.show
-    plt.savefig(plotloc_bh, dpi = 200, transparent = False)
+    plt.savefig(plotloc, dpi = 200, transparent = False)
+    plt.close('all')
+
+    # Final bit: store normalised data points in HDF5 file
+    imx = (xquant - xr[0]) / (xr[1] - xr[0])
+    imx = imx*0.67 + 0.15
+
+    imy = (yquant - yr[0]) / (yr[1] - yr[0])
+    imy = (imy*0.8 + 0.15) * (4.5/5.5)
+
+    hd.write_data(args.sim_pointdata_loc, f'{iplot[0]}-{iplot[1]}/xpt',
+                  imx, comment='Normalised x coordinates of points.')
+    hd.write_data(args.sim_pointdata_loc, f'{iplot[0]}-{iplot[1]}/ypt',
+                  imy, comment='Normalised y coordinates of points.')
+
+
+def get_vrquant(vr_data, short_name):
+    """Extract or compute a quantity from the VR catalogue."""
+    if short_name == 'M200c':
+        return np.log10(vr_data['M200c'])
+    elif short_name == 'MStar':
+        return np.log10(vr_data['MStar'])
+    elif short_name == 'Size':
+        return vr_data['StellarHalfMassRad']*1e3  # in kpc
+    elif short_name == 'sSFR':
+        log_mstar = np.log10(vr_data['MStar'])
+        log_sfr = np.log10(vr_data['SFR'])
+        return log_sfr - log_mstar
+    elif short_name == 'MBH':
+        return np.log10(vr_data['BH_SubgridMasses'])
 
 
 if __name__ == '__main__':
