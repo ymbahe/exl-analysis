@@ -20,7 +20,7 @@ ops = {
 }
 
 
-def connect_to_galaxies(bpart_ids, wdir, vr_file, combined_vr=True,
+def connect_to_galaxies(bpart_ids, vr_file, combined_vr=True,
                         extra_props=None):
     """Connect black holes to galaxies at a specified redshift.
 
@@ -28,8 +28,6 @@ def connect_to_galaxies(bpart_ids, wdir, vr_file, combined_vr=True,
     ----------
     bpart_ids : ndarray(int)
         The IDs of the black hole particle to match.
-    wdir : string
-        Directory of the simulation to work with
     vr_file : string
         VR file to connect to (None for no matching)
     combined_vr : bool, optional
@@ -61,8 +59,8 @@ def connect_to_galaxies(bpart_ids, wdir, vr_file, combined_vr=True,
         return
 
     if combined_vr:
-        vr_particle_file = f'{wdir}{vr_file}_particles.hdf5'
-        vr_main_file = f'{wdir}{vr_file}.hdf5'
+        vr_particle_file = f'{vr_file}_particles.hdf5'
+        vr_main_file = f'{vr_file}.hdf5'
     else:
         print("Please transcribe VR catalogue...")
         set_trace()
