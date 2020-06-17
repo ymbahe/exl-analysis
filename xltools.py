@@ -20,7 +20,8 @@ ops = {
 }
 
 
-def connect_to_galaxies(bpart_ids, wdir, vr_file, combined_vr=True):
+def connect_to_galaxies(bpart_ids, wdir, vr_file, combined_vr=True,
+                        extra_props=None):
     """Connect black holes to galaxies at a specified redshift.
 
     Parameters
@@ -33,6 +34,10 @@ def connect_to_galaxies(bpart_ids, wdir, vr_file, combined_vr=True):
         VR file to connect to (None for no matching)
     combined_vr : bool, optional
         Flag for using transcribed VR, must currently be True.
+    extra_props : list of tuples, optional
+        Extra properties to be retrieved from the VR catalogue. If None
+        (default), none are extracted. Entries must be of the form
+        ('VR_dataset', 'Output_name').
 
     Returns
     -------
@@ -45,6 +50,7 @@ def connect_to_galaxies(bpart_ids, wdir, vr_file, combined_vr=True):
                   if not matched
         - M200c --> M200c of the host halo [M_Sun], np.nan if not matched
         - HaloTypes --> Type index of the host halo, -1 if not matched
+        - [other properties as given in extra_props dict]
         - Redshift --> Redshift of VR catalogue
     """
     num_bhs = len(bpart_ids)
@@ -119,6 +125,14 @@ def connect_to_galaxies(bpart_ids, wdir, vr_file, combined_vr=True):
     gal_props['SFR'][ind_in_halo] = vr_sfr[vr_halo[ind_in_halo]]
     gal_props['M200c'][ind_in_halo] = vr_m200c[vr_halo[ind_in_halo]]
     gal_props['HaloTypes'][ind_in_halo] = vr_haloTypes[vr_halo[ind_in_halo]]
+
+    if extra_props is not None:
+        for iextra in extra_props:
+            print(f"Extracting extra quantity '{iextra[0]}' --> "
+                  f"'Halo_{iextra[1]}'")
+            vr_quant = hd.read_data(vr_main_file, iextra[0])
+            gal_props[iextra[1]] = np.zeros(num_bhs) + np.nan
+            gal_props[iextra[1]][ind_in_halo] = vr_quant[vr_halo[ind_in_halo]]
 
     return gal_props
 
