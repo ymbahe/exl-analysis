@@ -326,7 +326,7 @@ def write_bh_plots(writer, ibh, isnap, bh_list, plotdata_file):
     bh_chart_im = f'bh_evolution_BH-BID-{ibh}.png'
     writer.write(f'<a href="{bh_chart_im}">\n'
                  f'  <img src="{bh_chart_im}" alt="BH evolution" '
-                 f'width=500>\n</a>\n')
+                 f'height=450>\n</a>\n')
 
     # Stellar birth densities
     stellar_densities_im = f'stellar_densities_BH-BID-{ibh}.png'
