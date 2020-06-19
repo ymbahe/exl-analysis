@@ -14,19 +14,27 @@ import xltools as xl
 
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
-parser.add_argument('--sims',
-                    help='Simulation index/names to transcribe', nargs='+')
-#parser.add_argument('snapshot', type=int, help='Snapshot to transcribe')
+parser.add_argument('sims', nargs='+',
+                    help='Simulation index/names to transcribe '
+                         '("all" for all runs in base_dir).')
+parser.add_argument('--base_dir', default=local.BASE_DIR,
+                    help='Simulation base directory, default: '
+                         f'{local.BASE_DIR}')
+
 parser.add_argument('--snaps', type=int, nargs='+',
-                    help='Snapshots to transcribe')
+                    help='Snapshot indices to transcribe.')
 parser.add_argument('--vr_snaps', type=int, nargs='+',
-                    help='Snapshot indices of input VR catalogues.')
-parser.add_argument('--verbose', action='store_true')
-parser.add_argument('--vr_name', help='Name prefix of VR files',
-                    default='halos')
+                    help='Snapshot indices of input VR catalogues, '
+                         'if different from the (output) numbering '
+                         'specified in --snaps.')
+parser.add_argument('--vr_name', default='vr/halos',
+                    help='Name prefix of (input) VR files '
+                         '(default: "vr/halos").')
 parser.add_argument('--out_file', default='vr',
-                    help='Output file prefix (default: "vr")')
-parser.add_argument('--base_dir', default=local.BASE_DIR)
+                    help='Output file prefix (default: "vr").')
+
+parser.add_argument('--verbose', action='store_true',
+                    help='Display additional progress messages.')
 
 args = parser.parse_args()
 
@@ -245,8 +253,12 @@ list_profiles = [
 def main():
     """Main loop over simulations and snapshots."""
 
-    have_full_sim_dir = False   # May expand later
-
+    if args.sims[0].lower() == 'all':
+        args.sims = xl.get_all_sims(args.base_dir)
+        have_full_sim_dir = True
+    else:
+        have_full_sim_dir = False
+    
     for isim in args.sims:
 
         if have_full_sim_dir:
@@ -262,8 +274,9 @@ def main():
         
         for iisnap, isnap in enumerate(args.snaps):
 
+            # Account for possibly different VR numbering than (desired) output
             if args.vr_snaps is None:
-                ivsnap = None
+                ivsnap = isnap
             else:
                 ivsnap = args.vr_snaps[iisnap]
                 
@@ -279,9 +292,8 @@ def process_snap(wdir, out_file_base, isnap, ivsnap):
     stime = time.time()
     print("")
     print(f"Transcribing simulation {wdir}, snapshot {isnap}...")
-    if ivsnap is not None:
-        print(f"... fetching VR snapshot {ivsnap} ...")
-
+    if ivsnap != isnap:
+        print(f"   (fetching VR snapshot {ivsnap} ...)")
     print("")
     
     # Form the various VR file names
