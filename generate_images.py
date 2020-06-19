@@ -193,7 +193,6 @@ def generate_website(args, bh_data, bh_list):
         for isnap in args.snapshots:
 
             if isnap == args.snap_frontpage:
-                set_trace()
                 zind_bh_frontpage = np.argmin(
                     np.abs(bh_data['Redshifts'] - args.snaps_zred[isnap]))
                 print(f"BH output index for frontpage is {zind_bh_frontpage}.")
@@ -298,8 +297,7 @@ def write_bh_header(writer, ibh, isnap, bh_data, vr_bhdata, args):
     for ixsnap in args.snapshots:
         writer.write(f'<a href="index_bh-{ibh}_snap-{ixsnap}.html">'
                      f'Snap {ixsnap} (z = {args.snaps_zred[ixsnap]:.1f}) '
-                     f'&nbsp; &nbsp; &nbsp;'
-                     f'</a>')
+                     f'</a> &nbsp; &nbsp; &nbsp;')
     writer.write(f'</h3>')
     
     if vr_bhdata is not None:
@@ -329,7 +327,7 @@ def write_bh_plots(writer, ibh, isnap, bh_list, plotdata_file):
                  f'height=450>\n</a>\n')
 
     # Stellar birth densities
-    stellar_densities_im = f'stellar_densities_BH-BID-{ibh}.png'
+    stellar_densities_im = f'stellar_birth_densities_BH-BID-{ibh}.png'
     writer.write(f'<a href="{stellar_densities_im}">\n'
                  f'  <img src="{stellar_densities_im}" '
                  f'alt="Stellar birth densities" '

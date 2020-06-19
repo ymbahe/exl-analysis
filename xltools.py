@@ -64,8 +64,10 @@ def connect_to_galaxies(bpart_ids, vr_file, combined_vr=True,
         connect_ids_to_vr(bpart_ids, vr_file, require=False))
     
     # Add a few key properties of the haloes, for convenience
-    ind_in_halo = found_in_vr[ind_good]
-
+    ind_in_halo = np.nonzero(gal_props['Haloes'] >= 0)[0]
+    vr_halo = gal_props['Haloes']
+    
+    vr_main_file = f'{vr_file}.hdf5'
     vr_mstar = hd.read_data(vr_main_file,
                             'ApertureMeasurements/30kpc/Stars/Masses')
     vr_sfr = hd.read_data(vr_main_file, 'ApertureMeasurements/30kpc/SFR/')
