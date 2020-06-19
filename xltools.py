@@ -317,3 +317,22 @@ def legend_text(ax, x, y, text, alpha=1, color='black', fontsize=8):
              yr[0] + (yr[1]-yr[0]) * y,
              text, va='bottom', ha='left', alpha=alpha, color=color,
              fontsize=fontsize)
+
+
+def plot_cumdist(quantities, weights=None, indices=None,
+                 **kwargs):
+    """Plot a cumulative distribution."""
+
+    if indices is None:
+        indices = np.arange(len(quantities))
+    
+    sorter = np.argsort(quantities[indices])
+    xquant = quantities[indices[sorter]]
+
+    if weights is None:
+        yquant = np.arange(len(indices)) + 1 / len(indices)
+    else:
+        yquant = np.cumsum(weights[indices[sorter]]) / np.sum(weights[indices])
+
+    plt.plot(xquant, yquant, **kwargs)
+        
