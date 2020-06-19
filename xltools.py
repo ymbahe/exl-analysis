@@ -51,6 +51,7 @@ def connect_to_galaxies(bpart_ids, vr_file, combined_vr=True,
         - [other properties as given in extra_props dict]
         - Redshift --> Redshift of VR catalogue
     """
+
     num_bhs = len(bpart_ids)
     gal_props = {}
 
@@ -58,52 +59,9 @@ def connect_to_galaxies(bpart_ids, vr_file, combined_vr=True,
         print("Skipping galaxy linking on your request...")
         return
 
-    if combined_vr:
-        vr_particle_file = f'{vr_file}_particles.hdf5'
-        vr_main_file = f'{vr_file}.hdf5'
-    else:
-        print("Please transcribe VR catalogue...")
-        set_trace()
-
-    # Also abort if VR catalogue could not be found
-    if ((not os.path.isfile(vr_particle_file)) or
-        (not os.path.isfile(vr_main_file))):
-        print(f"VR catalogue {vr_file} does not exist...")
-        return None
-
-    # Find redshift of VR catalogue
-    aexp = float(hd.read_attribute(vr_main_file, 'SimulationInfo',
-                                   'ScaleFactor'))
-    gal_props['Redshift'] = 1/aexp - 1
-    print(f"Connecting to VR catalogue {vr_file} at redshift "
-          f"{gal_props['Redshift']}...")
-    
-    # Load VR particle IDs
-    vr_ids = hd.read_data(vr_particle_file, 'Haloes/IDs')
-    vr_nums = hd.read_data(vr_particle_file, 'Haloes/Numbers')
-    vr_offsets = hd.read_data(vr_particle_file, 'Haloes/Offsets')
-
-    # Locate 'our' BHs in the VR ID list
-    print("Locating BHs in VR list...")
-    stime = time.time()
-    ind_in_vr, found_in_vr = hx.find_id_indices(bpart_ids, vr_ids)
-    print(f"... took {(time.time() - stime):.3f} sec., located "
-          f"{len(found_in_vr)} "
-          f"/ {num_bhs} BHs in VR list ({len(found_in_vr)/num_bhs*100:.3f}%).")
-    
-    # Now convert VR particle indices to halo indices
-    halo_guess = np.searchsorted(vr_offsets, ind_in_vr[found_in_vr],
-                                 side='right') - 1
-    ind_good = np.nonzero(ind_in_vr[found_in_vr] <
-                          (vr_offsets[halo_guess] + vr_nums[halo_guess]))[0]
-
-    vr_halo = np.zeros(num_bhs, dtype=int) - 1
-    vr_halo[found_in_vr[ind_good]] = halo_guess[ind_good]
-    print(f"... could match {len(ind_good)} / {num_bhs} BHs to haloes. "
-          f"({len(ind_good)/num_bhs*100:.3f}%).")
-
-    # Store result in output dict
-    gal_props['Haloes'] = vr_halo
+    # Look up BH IDs in VR
+    gal_props['Haloes'], gal_props['Redshift'], gal_props['ScaleFactor'] = (
+        connect_ids_to_vr(bpart_ids, vr_file, require=False))
     
     # Add a few key properties of the haloes, for convenience
     ind_in_halo = found_in_vr[ind_good]
@@ -134,6 +92,55 @@ def connect_to_galaxies(bpart_ids, vr_file, combined_vr=True,
 
     return gal_props
 
+
+def connect_ids_to_vr(ids, vr_file, require=False):
+    """Core function to find the VR halo of a set of IDs."""
+
+    num_ids = len(ids)
+    
+    vr_particle_file = f'{vr_file}_particles.hdf5'
+    vr_main_file = f'{vr_file}.hdf5'
+    
+    # Abort if VR catalogue could not be found
+    if ((not os.path.isfile(vr_particle_file)) or
+        (not os.path.isfile(vr_main_file))):
+        print(f"VR catalogue {vr_file} does not exist...")
+        if require:
+            set_trace()
+        return None
+
+    # Find redshift of VR catalogue
+    aexp = float(hd.read_attribute(vr_main_file, 'SimulationInfo',
+                                   'ScaleFactor'))
+    zred = 1/aexp - 1
+    print(f"Connecting to VR catalogue {vr_file} at redshift {zred}...")
+    
+    # Load VR particle IDs
+    vr_ids = hd.read_data(vr_particle_file, 'Haloes/IDs')
+    vr_nums = hd.read_data(vr_particle_file, 'Haloes/Numbers')
+    vr_offsets = hd.read_data(vr_particle_file, 'Haloes/Offsets')
+
+    # Locate 'our' IDss in the VR ID list
+    print("Locating IDs in VR list...")
+    stime = time.time()
+    ind_in_vr, found_in_vr = hx.find_id_indices(ids, vr_ids)
+    print(f"... took {(time.time() - stime):.3f} sec., located "
+          f"{len(found_in_vr)} "
+          f"/ {num_ids} IDs in VR list ({len(found_in_vr)/num_ids*100:.3f}%).")
+    
+    # Now convert VR particle indices to halo indices
+    halo_guess = np.searchsorted(vr_offsets, ind_in_vr[found_in_vr],
+                                 side='right') - 1
+    ind_good = np.nonzero(ind_in_vr[found_in_vr] <
+                          (vr_offsets[halo_guess] + vr_nums[halo_guess]))[0]
+
+    vr_halo = np.zeros(num_ids, dtype=int) - 1
+    vr_halo[found_in_vr[ind_good]] = halo_guess[ind_good]
+    print(f"... could match {len(ind_good)} / {num_ids} IDs to haloes. "
+          f"({len(ind_good)/num_ids*100:.3f}%).")
+
+    return vr_halo, aexp, zred
+    
 
 def get_sim_dir(base_dir, isim):
     """Construct the directory of a simulation.
