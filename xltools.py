@@ -102,8 +102,8 @@ def connect_to_galaxies(bpart_ids, vr_file, combined_vr=True,
     print(f"... could match {len(ind_good)} / {num_bhs} BHs to haloes. "
           f"({len(ind_good)/num_bhs*100:.3f}%).")
 
-    # Store result in (new) dict
-    gal_props = {'Haloes': vr_halo}
+    # Store result in output dict
+    gal_props['Haloes'] = vr_halo
     
     # Add a few key properties of the haloes, for convenience
     ind_in_halo = found_in_vr[ind_good]
