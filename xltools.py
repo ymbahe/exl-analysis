@@ -284,3 +284,36 @@ def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None):
         print(f"There are {len(sel)} BHs in selection list.")
 
     return bh_data, sel
+
+
+def legend_item(ax, xr, y, text, alpha=1, ls='-', color='black',
+                text_side='right'):
+    """Add one legend item to the axes ax."""
+
+    tr = ax.get_xlim()
+    yr = ax.get_ylim()
+
+    plt.plot(tr[0] + (tr[1]-tr[0]) * np.array(xr),
+             yr[0] + (yr[1]-yr[0]) * np.array([y, y]),
+             linestyle=ls, color=color)
+
+    if text_side == 'right':
+        text_x, text_ha = np.max(xr) + 0.02, 'left'
+    else:
+        text_x, text_ha = np.min(xr) -0.02, 'right'
+
+    plt.text(tr[0] + (tr[1]-tr[0]) * text_x,
+             yr[0] + (yr[1]-yr[0]) * y,
+             text, va='center', ha=text_ha, alpha=alpha, color=color)
+
+
+def legend_text(ax, x, y, text, alpha=1, color='black', fontsize=8):
+    """Add one legend text-only item to the axes ax."""
+
+    tr = ax.get_xlim()
+    yr = ax.get_ylim()
+
+    plt.text(tr[0] + (tr[1]-tr[0]) * x,
+             yr[0] + (yr[1]-yr[0]) * y,
+             text, va='bottom', ha='left', alpha=alpha, color=color,
+             fontsize=fontsize)
