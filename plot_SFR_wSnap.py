@@ -8,36 +8,41 @@ Created on Mon Oct 14 13:56:13 2019
 
 import sys
 import local
+import xltools as xl
+import argparse
 
-"""Main program"""
+def main():
 
-print("Parsing input arguments...")
-parser = argparse.ArgumentParser(description="Parse input parameters.")
-parser.add_argument('mode', help='Comparison type')
+    """Main program"""
 
-parser.add_argument('--snap_name', help='Name prefix of simulation outputs '
-                    '(default: "output")', default='output')
-parser.add_argument('--max_snap', type=int,
-    help='Maximum number of outputs (default: 3000)', default=3000)
-parser.add_argument('--base_dir', help='Base directory of simulations '
-    '(default: [LOCAL])',
-default=local.BASE_DIR)
-parser.add_argument('--full_dir', action='store_true')
-parser.add_argument('--out_file', help='File to store output in (default: '
-            '"black_hole_data.hdf5")', default='black_hole_data.hdf5')
-parser.add_argument('--include', help='Only include the listed data sets',
-                    nargs='+')
-parser.add_argument('--exclude', help='Exclude the listed data sets',
-                    nargs='+')
-parser.add_argument('--vr_snap', default=36, type=int,
-                    help='Link to VR catalogue in this snapshot '
-'(default: 36). Set to -1 to disable VR linking.')
-parser.add_argument('--vr_file', default='vr',
-help='Base name of VR catalogue to use (default: "vr")')
-parser.add_argument('--combined_vr', action='store_true')
+    print("Parsing input arguments...")
+    parser = argparse.ArgumentParser(description="Parse input parameters.")
+    
+    parser.add_argument('mode', help='Comparison type')
 
-parser.add_argument('--out_dir')
-args = parser.parse_args()
+    parser.add_argument('--snap_name', help='Name prefix of simulation outputs '
+                        '(default: "output")', default='output')
+    parser.add_argument('--max_snap', type=int,
+        help='Maximum number of outputs (default: 3000)', default=3000)
+    parser.add_argument('--base_dir', help='Base directory of simulations '
+        '(default: [LOCAL])',
+    default=local.BASE_DIR)
+    parser.add_argument('--full_dir', action='store_true')
+    parser.add_argument('--out_file', help='File to store output in (default: '
+                '"black_hole_data.hdf5")', default='black_hole_data.hdf5')
+    parser.add_argument('--include', help='Only include the listed data sets',
+                        nargs='+')
+    parser.add_argument('--exclude', help='Exclude the listed data sets',
+                        nargs='+')
+    parser.add_argument('--vr_snap', default=36, type=int,
+                        help='Link to VR catalogue in this snapshot '
+    '(default: 36). Set to -1 to disable VR linking.')
+    parser.add_argument('--vr_file', default='vr',
+    help='Base name of VR catalogue to use (default: "vr")')
+    parser.add_argument('--combined_vr', action='store_true')
+
+    parser.add_argument('--out_dir')
+    args = parser.parse_args()
 
 
 if len(sys.argv) == 1:
@@ -418,4 +423,9 @@ plt.subplots_adjust(left = 0.15, bottom = 0.15, right = 0.85)
 plt.show
 plt.savefig(plotloc, dpi = None, transparent = False)
 
-print("Done!")
+
+
+
+if __name__ == "__main__":
+    main()
+    print("Done!")
