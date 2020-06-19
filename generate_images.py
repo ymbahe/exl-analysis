@@ -92,6 +92,7 @@ def main():
     if os.path.isfile(args.plotdata_file):
         bh_list = hd.read_data(args.plotdata_file, 'BlackHoleBIDs')
         select_list = None
+
     else:    
         # Find BHs we are intereste in, load data
         select_list = [
@@ -106,7 +107,7 @@ def main():
                                         bh_props_list, select_list)
     if bh_list is None:
         bh_list = bh_sel
-    
+
     if len(bh_list) == 0:
         print("No black holes selected, aborting.")
         return
@@ -362,8 +363,8 @@ def write_vr_plot(writer, ibh, isnap, bh_list, plotdata_file, iiplot, iplot):
     writer.write(f'<map name="map-{iplot[0]}-{iplot[1]}">')
     writer.write('\n')
     
-    imx = hd.read_data(plotdata_file, f'{iplot[0]}-{iplot[1]}/xpt')
-    imy = hd.read_data(plotdata_file, f'{iplot[0]}-{iplot[1]}/ypt')    
+    imx = hd.read_data(plotdata_file, f'S{isnap}/{iplot[0]}-{iplot[1]}/xpt')
+    imy = hd.read_data(plotdata_file, f'S{isnap}/{iplot[0]}-{iplot[1]}/ypt')    
 
     # Add a link for each individual BH to the map...
     for ixbh, xbh in enumerate(bh_list):

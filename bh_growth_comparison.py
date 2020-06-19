@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 # Cosmology instance, for redshift <--> time conversion
 cosmo = xl.swift_Planck_cosmology()
 
-bh_props_list = ['SubgridMasses', 'Times']
+bh_props_list = ['SubgridMasses', 'Times', 'Halo_MStar']
 
 def main():
 
@@ -57,6 +57,11 @@ def main():
                         help='Min and max stellar mass of host galaxy '
                              '[M_Sun], default: 3e10, 4e11.',
                         nargs='+')
+    parser.add_argument('--halo_m200_range', default=[0, 1e16], type=float,
+                        help='Min and max M200 mass of host galaxy '
+                             '[M_Sun], default: 0, 1e16.',
+                        nargs='+')
+
     parser.add_argument('--include_satellites', action='store_true',
                         help='Only show BHs in central haloes, not satellites.')
     parser.add_argument('--show_target_only', action='store_true',
@@ -77,31 +82,42 @@ def main():
     # Name of the input catalogue, containing all the data to plot
     args.catloc = f'{args.wdir}{args.bh_file}'
 
-    # Find BHs we are intereste in, load data
-    select_list = [
-        ["Halo_MStar", '>=', args.halo_mstar_range[0]],
-        ["Halo_MStar", '<', args.halo_mstar_range[1]],
-    ]
-    if not args.include_subdominant_bhs:
-        select_list.append(['Flag_MostMassiveInHalo', '==', 1])
-    if not args.include_satellites:
-        select_list.append(['HaloTypes', '==', 10])
+    args.plotdata_file = f'{args.wdir}gallery/vr-plots.hdf5'
+    if os.path.isfile(args.plotdata_file):
+        bh_list = hd.read_data(args.plotdata_file, 'BlackHoleBIDs')
+        select_list = None
+    else:
+        # Find BHs we are intereste in, load data
+        select_list = [
+            ["Halo_MStar", '>=', args.halo_mstar_range[0]],
+            ["Halo_MStar", '<', args.halo_mstar_range[1]],
+            ["Halo_M200c", '>=', args.halo_m200_range[0]],
+            ["Halo_M200c", '<', args.halo_m200_range[1]]
+        ]
+        if not args.include_subdominant_bhs:
+            select_list.append(['Flag_MostMassiveInHalo', '==', 1])
+        if not args.include_satellites:
+            select_list.append(['HaloTypes', '==', 10])
 
-    if args.bh_mass_range is not None:
-        zreds = hd.read_data(args.wdir + args.bh_file, 'Redshifts')
-        best_index = np.argmin(np.abs(zreds - args.bh_selection_redshift))
-        print(f"Best index for redshift {args.bh_selection_redshift} is "
-              f"{best_index}.")
+        if args.bh_mass_range is not None:
+            zreds = hd.read_data(args.wdir + args.bh_file, 'Redshifts')
+            best_index = np.argmin(np.abs(zreds - args.bh_selection_redshift))
+            print(f"Best index for redshift {args.bh_selection_redshift} is "
+                f"{best_index}.")
         
-        # Subgrid masses are in 10^10 M_sun, so need to adjust selection range
-        select_list.append(
-            ['SubgridMasses', '>=', args.bh_mass_range[0]/1e10, best_index])
-        select_list.append(
-            ['SubgridMasses', '<=', args.bh_mass_range[1]/1e10, best_index])        
-        
-    bh_data, bh_list = xl.lookup_bh_data(args.wdir + args.bh_file,
-                                         bh_props_list, select_list)
+            # Subgrid masses are in 10^10 M_sun, so need to adjust selection range
+            select_list.append(
+                ['SubgridMasses', '>=', args.bh_mass_range[0]/1e10, best_index])
+            select_list.append(
+                ['SubgridMasses', '<=', args.bh_mass_range[1]/1e10, best_index])        
 
+        bh_list = None
+            
+    bh_data, bh_sel = xl.lookup_bh_data(args.wdir + args.bh_file,
+                                        bh_props_list, select_list)
+    if bh_list is None:
+        bh_list = bh_sel
+    
     generate_track_image(args, bh_data, bh_list)
 
     if args.bh_bid is None:
