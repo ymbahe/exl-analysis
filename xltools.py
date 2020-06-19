@@ -10,6 +10,15 @@ from pdb import set_trace
 from astropy.cosmology import FlatLambdaCDM
 import time
 
+# Set up Matplotlib
+import matplotlib as mpl
+mpl.rcParams.update(mpl.rcParamsDefault)
+mpl.use('pdf')
+mpl.rcParams['font.family'] = 'serif'
+mpl.rcParams['font.serif'][0] = 'palatino'
+mpl.rc('text', usetex=True)
+import matplotlib.pyplot as plt
+
 # Define a dict for string lookup of comparison operators
 ops = {
     '>': operator.gt,
@@ -335,4 +344,3 @@ def plot_cumdist(quantities, weights=None, indices=None,
         yquant = np.cumsum(weights[indices[sorter]]) / np.sum(weights[indices])
 
     plt.plot(xquant, yquant, **kwargs)
-        
