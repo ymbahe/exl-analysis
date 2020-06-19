@@ -98,12 +98,14 @@ def process_sim(isim, args):
     args.catloc = f'{args.wdir}{args.bh_file}'
 
     # Select BHs in this sim
-    if args.bh_bid is not None:
+    if args.bh_bid is None:
 
         # Find BHs we are intereste in, load data
         select_list = [
             ["Halo_MStar", '>=', args.halo_mstar_range[0]],
             ["Halo_MStar", '<', args.halo_mstar_range[1]],
+            ["Halo_M200c", '>=', args.halo_m200_range[0]],
+            ["Halo_M200c", '<', args.halo_m200_range[1]]
         ]
         if not args.include_subdominant_bhs:
             select_list.append(['Flag_MostMassiveInHalo', '==', 1])
@@ -129,9 +131,9 @@ def process_sim(isim, args):
     bh_file = args.wdir + args.bh_file
     bh_data, bh_list = xl.lookup_bh_data(bh_file, bh_props_list, select_list)
     args.nsnap = len(bh_data['Times'])
-
+    
     # Overwrite selection with input, if specific BID(s) provided
-    if args.bh_bid:
+    if args.bh_bid is not None:
         bh_list = args.bh_bid    
 
     # Extract meta-data from Header
@@ -178,7 +180,7 @@ def process_bh(args, bh_data, ibh, isim):
                     bottom=0.05, top=0.95, hspace=0, wspace=0)
 
     plt.show
-    plotloc = f'{args.wdir}{args.plot_prefix}_BH-{ibh}.pdf'
+    plotloc = f'{args.wdir}{args.plot_prefix}_BH-BID-{ibh}.png'
     if not os.path.isdir(os.path.dirname(plotloc)):
         os.makedirs(os.path.dirname(plotloc))
     plt.savefig(plotloc, dpi=200)
@@ -386,6 +388,10 @@ def get_args(argv=None):
     parser.add_argument('--halo_mstar_range', default=[3e10, 4e11], type=float,
                         help='Min and max stellar mass of host galaxy '
                              '[M_Sun], default: 3e10, 4e11.',
+                        nargs='+')
+    parser.add_argument('--halo_m200_range', default=[0, 1e16], type=float,
+                        help='Min and max halo mass of host galaxy '
+                             '[M_Sun], default: 0, 1e16.',
                         nargs='+')
     parser.add_argument('--include_satellites', action='store_true',
                         help='Only show BHs in central haloes, not satellites.')
