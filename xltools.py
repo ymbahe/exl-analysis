@@ -296,7 +296,7 @@ def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None):
 
 
 def legend_item(ax, xr, y, text, alpha=1, ls='-', color='black',
-                text_side='right'):
+                text_side='right', fontsize=10):
     """Add one legend item to the axes ax."""
 
     tr = ax.get_xlim()
@@ -313,7 +313,8 @@ def legend_item(ax, xr, y, text, alpha=1, ls='-', color='black',
 
     plt.text(tr[0] + (tr[1]-tr[0]) * text_x,
              yr[0] + (yr[1]-yr[0]) * y,
-             text, va='center', ha=text_ha, alpha=alpha, color=color)
+             text, va='center', ha=text_ha, alpha=alpha, color=color,
+             fontsize=fontsize)
 
 
 def legend_text(ax, x, y, text, alpha=1, color='black', fontsize=8):
