@@ -8,7 +8,6 @@ from pdb import set_trace
 import local
 import hydrangea.hdf5 as hd
 import xltools as xl
-from plot_bh_growth import legend_item
 
 # Set up Matplotlib
 import matplotlib as mpl
@@ -231,7 +230,7 @@ def process_bh(args, ibh, bh_data, isim, isnap, star_birth_densities,
     plot_cumdist(star_birth_densities, star_masses, None,
                  color='grey')
 
-    legend_item(ax, [0.03, 0.1], 0.95, 'Full simulation', color='grey')
+    xl.legend_item(ax, [0.03, 0.1], 0.95, 'Full simulation', color='grey')
     
     # Plot distribution only for current BH/galaxy, in set of apertures
     ind_in_halo = np.nonzero(star_haloes == bh_data['Haloes'][ibh])[0]
@@ -246,8 +245,8 @@ def process_bh(args, ibh, bh_data, isim, isnap, star_birth_densities,
             legend_text = 'r 'r'$<$' f' {iap} kpc'
         else:
             legend_text = 'Whole galaxy'
-        legend_item(ax, [0.03, 0.1], 0.86-iiap*0.07, legend_text,
-                    color=cvec[iiap])
+        xl.legend_item(ax, [0.03, 0.1], 0.86-iiap*0.07, legend_text,
+                       color=cvec[iiap])
         
     # Save figure
     plt.subplots_adjust(left=0.15, right=0.96, bottom=0.15, top=0.95)
@@ -259,8 +258,7 @@ def process_bh(args, ibh, bh_data, isim, isnap, star_birth_densities,
     plt.close('all')
 
 
-def plot_cumdist(quantities, weights=None, indices=None,
-                 **kwargs):
+def plot_cumdist(quantities, weights=None, indices=None, **kwargs):
     """Plot a cumulative distribution."""
 
     if indices is None:
