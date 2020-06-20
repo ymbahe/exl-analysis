@@ -50,7 +50,15 @@ def get_args(argv=None):
     parser.add_argument('--vr_name', default='vr',
     	                help='Name prefix of VR catalogue (default: "vr").')
 
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+
+    if args.sims[0].lower() == 'all':
+        args.sims = xl.get_all_sims(args.base_dir)
+        args.have_full_sim_dir = True
+    else:
+        args.have_full_sim_dir = False
+
+    return args
 
 
 def process_sim(isim, args):
