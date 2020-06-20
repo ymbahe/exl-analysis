@@ -69,7 +69,7 @@ def connect_to_galaxies(bpart_ids, vr_file, combined_vr=True,
         return
 
     # Look up BH IDs in VR
-    gal_props['Haloes'], gal_props['Redshift'], gal_props['ScaleFactor'] = (
+    gal_props['Haloes'], gal_props['ScaleFactor'], gal_props['Redshift'] = (
         connect_ids_to_vr(bpart_ids, vr_file, require=False))
     
     # Add a few key properties of the haloes, for convenience
@@ -224,7 +224,8 @@ def swift_Planck_cosmology():
     return FlatLambdaCDM(H0=H0, Om0=Om0, Ob0=Ob0)
 
 
-def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None):
+def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None,
+                   bh_list=None):
     """Load info from BH file into arrays and find target BHs."""
 
     bh_data = {}
@@ -249,7 +250,9 @@ def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None):
 
     # Now find the list of BHs we are interested in (based on z=0 props)
 
-    if selection_list is None:
+    if bh_list is not None:
+        sel = bh_list
+    elif selection_list is None:
         sel = None
 
     else:
@@ -329,7 +332,7 @@ def legend_text(ax, x, y, text, alpha=1, color='black', fontsize=8):
 
 
 def plot_cumdist(quantities, weights=None, indices=None,
-                 **kwargs):
+                 norm=True, log=False, **kwargs):
     """Plot a cumulative distribution."""
 
     if indices is None:
@@ -337,10 +340,18 @@ def plot_cumdist(quantities, weights=None, indices=None,
     
     sorter = np.argsort(quantities[indices])
     xquant = quantities[indices[sorter]]
-
+    
     if weights is None:
-        yquant = np.arange(len(indices)) + 1 / len(indices)
+        yquant = np.arange(len(indices)) + 1
+        norm_val = len(indices)
     else:
-        yquant = np.cumsum(weights[indices[sorter]]) / np.sum(weights[indices])
+        yquant = np.cumsum(weights[indices[sorter]])
+        norm_val = np.sum(weights[indices])
+
+    if norm:
+        yquant /= norm_val
+
+    if log:
+        yquant = np.log10(yquant)
 
     plt.plot(xquant, yquant, **kwargs)
