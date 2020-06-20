@@ -2,6 +2,8 @@ import numpy as np
 import os
 import argparse
 from pdb import set_trace
+from scipy.interpolate import interp1d
+import astropy.units as u
 
 import local
 import hydrangea.hdf5 as hd
@@ -27,15 +29,18 @@ bh_props_list = ['Times', 'ParticleIDs',
                  'GasCircularVelocities', 'GasSoundSpeeds',
                  'GasVelocityDispersions', 'GasDensities', 'NumberOfTimeSteps',
                  'NumberOfRepositions', 'NumberOfRepositionAttempts',
-                 'NumberOfSwallows', 'NumberOfMergers', 'ViscosityFactors']
+                 'NumberOfSwallows', 'NumberOfMergers', 'ViscosityFactors',
+                 'Haloes', 'NumberOfRepositionings']
 
-panels = ['Masses', 'AccretionRate', 'Speeds', 'Density',
+panels = ['Masses', 'AccretionRate', 'Speeds', 'Density', 'StellarMass',
           'Repositions', 'RepositionFractions']
 
 yranges = {'Masses': [4.8, 8.0],
            'AccretionRate': [-8.9, 0],
            'ViscosityFactor': [-4, 0.05],
            'Speeds': [-0.9, 3.0],
+           'StellarMass': [0, 10.0],
+           'StarFormationRate': [-1, 2.0],
            'Density': [4.0, 9.0],
            'Repositions': [0, 100],
            'RepositionFractions': [-0.02, 1.02]}
@@ -47,6 +52,9 @@ ylabels = {'Masses': r'BH masses (log $m$ [M$_\odot$])',
            'ViscosityFactor': r'$\log_{10}$ Viscosity factor',
            'Speeds': r'Gas speeds (log $v$ [km/s])',
            'Density': r'Gas density (log)',
+           'StellarMass': r'Stellar initial mass [$10^{10}\,\mathrm{M}_\odot$]',
+           'StarFormationRate': r'log$_{10}$ (SFR$_\mathrm{paleo.}$ '
+                                r'[M$_\odot$ yr$^{-1}$])',
            'Repositions': r'Reposition numbers',
            'RepositionFractions': r'Reposition fractions'}
 
@@ -56,8 +64,12 @@ plot_bvel = False
 # Plot the circular velocity of the BH?
 plot_bcvel = True
 
+num_repos_name = 'NumberOfRepositions'
+
 def main():
 
+    global num_repos_name
+    
     argvals = None
     args = get_args(argvals)
 
@@ -80,7 +92,9 @@ def main():
         args.have_full_sim_dir = False
 
     print(f"Processing {len(args.sims)} simulations")
-
+    if args.use_old_names:
+        num_repos_name = 'NumberOfRepositionings'
+    
     for isim in args.sims:
         process_sim(isim, args)
 
@@ -98,7 +112,16 @@ def process_sim(isim, args):
     args.catloc = f'{args.wdir}{args.bh_file}'
 
     # Select BHs in this sim
-    if args.bh_bid is None:
+    args.plotdata_file = f'{args.wdir}gallery/vr-plots.hdf5'
+    if os.path.isfile(args.plotdata_file):
+        bh_list = hd.read_data(args.plotdata_file, 'BlackHoleBIDs')
+        select_list = None
+     
+    elif args.bh_bid is not None:
+        select_list = None
+        bh_list = args.bh_bid 
+
+    else:
 
         # Find BHs we are intereste in, load data
         select_list = [
@@ -123,18 +146,14 @@ def process_sim(isim, args):
             select_list.append(
                 ['SubgridMasses', '>=', args.bh_mass_range[0]/1e10, best_index])
             select_list.append(
-                ['SubgridMasses', '<=', args.bh_mass_range[1]/1e10, best_index])        
+                ['SubgridMasses', '<=', args.bh_mass_range[1]/1e10, best_index])
 
-    else:
-        select_list = None
+        bh_list = None
 
     bh_file = args.wdir + args.bh_file
-    bh_data, bh_list = xl.lookup_bh_data(bh_file, bh_props_list, select_list)
+    bh_data, bh_list = xl.lookup_bh_data(bh_file, bh_props_list, select_list,
+                                         bh_list)
     args.nsnap = len(bh_data['Times'])
-    
-    # Overwrite selection with input, if specific BID(s) provided
-    if args.bh_bid is not None:
-        bh_list = args.bh_bid    
 
     # Extract meta-data from Header
     bh_data['CodeBranch'] = hd.read_attribute(bh_file, 'Code', 'Git Branch')
@@ -142,11 +161,14 @@ def process_sim(isim, args):
     bh_data['CodeRev'] = hd.read_attribute(bh_file, 'Code', 'Git Revision')
     bh_data['SimName'] = hd.read_attribute(bh_file, 'Header', 'RunName')
 
+    # Look up stars data
+    stars = Stars(args)
+    
     for ibh in bh_list:
-        process_bh(args, bh_data, ibh, isim)
+        process_bh(args, stars, bh_data, ibh, isim)
 
         
-def process_bh(args, bh_data, ibh, isim):
+def process_bh(args, stars, bh_data, ibh, isim):
     """Process one BH from one simulation."""
 
     fig = plt.figure(figsize=(args.plot_width, 15))
@@ -173,7 +195,7 @@ def process_bh(args, bh_data, ibh, isim):
 
     # Actual plots
     for iipanel, ipanel in enumerate(panels):
-        plot_bh_panel(args, bh_data, plot_config, iipanel)
+        plot_bh_panel(args, stars, bh_data, plot_config, iipanel)
 
     plt.subplots_adjust(left=0.2/(args.plot_width/9),
                     right=max(0.93/(args.plot_width/9), 0.93),
@@ -187,7 +209,7 @@ def process_bh(args, bh_data, ibh, isim):
     plt.close('all')
 
 
-def plot_bh_panel(args, bh_data, plot_config, iipanel):
+def plot_bh_panel(args, stars, bh_data, plot_config, iipanel):
     """Plot one property panel."""
 
     panel = panels[iipanel]
@@ -195,17 +217,16 @@ def plot_bh_panel(args, bh_data, plot_config, iipanel):
 
     # Set up the panel axes
     ax = plt.subplot(n_panels, 1, iipanel+1)
-    ax.set_xlim(plot_config['tr'])
-    ax.set_ylim(yranges[panel])
+    yrange = list(yranges[panel])
     ax.set_ylabel(ylabels[panel])
     if iipanel < n_panels - 1:
         ax.axes.get_xaxis().set_visible(False)
     else:
         ax.set_xlabel(xlabel)
 
-    # Mark times of repositions, swallows, mergers
-    draw_time_lines(plot_config['events'], yranges[panel])
-
+    ax.set_xlim(plot_config['tr'])
+    ax.set_ylim(yrange)  # May overwrite later
+        
     # Draw on actual evolution trends
     inds = plot_config['inds']
     times = bh_data['Times'][inds]
@@ -232,12 +253,24 @@ def plot_bh_panel(args, bh_data, plot_config, iipanel):
                  color = 'black')
 
         if bh_data['ViscosityFactors'] is not None:
+            f_visc = bh_data['ViscosityFactors'][ibh, inds]
             axy = get_yaxis_viscosity(ax)
             plt.sca(axy)
-            plt.plot(times, np.log10(bh_data['ViscosityFactors'][ibh, inds]),
-                     color='purple', linestyle=':')
+            plt.plot(times, np.log10(f_visc), color='purple', linestyle=':')
             plt.sca(ax)
 
+            f_visc_med = np.median(f_visc)
+            f_visc_av = np.average(f_visc)
+            f_visc_av_weighted = np.average(
+                f_visc,
+                weights=(bh_data['AccretionRates'][ibh, inds] / f_visc))
+                                   
+            legend_text(ax, 0.97, 0.05, r'Average $f_\mathrm{visc}$ = '
+                        f'{f_visc_av:.3f} '
+                        f'(weighted: {f_visc_av_weighted:.3f}), '
+                        f'median = {f_visc_med:.3f}',
+                        color='purple', ha='right')
+            
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
     elif panel == 'Speeds':
@@ -278,8 +311,24 @@ def plot_bh_panel(args, bh_data, plot_config, iipanel):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
+    elif panel == 'StellarMass':
+        total_mass = plot_cumulative_stellar_mass(
+            args, stars, bh_data['Haloes'][ibh], ax)
+
+        yrange[1] = total_mass * 1.05
+        ax.set_ylim(yrange)
+        
+        legend_item(ax, [0.9, 0.97], 0.06, r'r $<$ 5.0 kpc',
+                    color='red', text_side='left')
+        legend_item(ax, [0.9, 0.97], 0.14, r'r $<$ 15.0 kpc',
+                    color='seagreen', text_side='left')
+        legend_item(ax, [0.9, 0.97], 0.22, r'Whole galaxy',
+                    color='royalblue', text_side='left')
+        
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    
     elif panel == 'Repositions':
-        plt.plot(times, bh_data['NumberOfRepositions'][ibh, inds],
+        plt.plot(times, bh_data[num_repos_name][ibh, inds],
                  color='black')
         plt.plot(times, bh_data['NumberOfRepositionAttempts'][ibh, inds],
                  color='black', linestyle=':')
@@ -302,6 +351,12 @@ def plot_bh_panel(args, bh_data, plot_config, iipanel):
 
     # ---------------------------------------------------------------------
 
+    ax.set_xlim(plot_config['tr'])
+    ax.set_ylim(yrange)  # May overwrite later
+    
+    # Mark times of repositions, swallows, mergers
+    draw_time_lines(plot_config['events'], yrange)
+    
     # Information that is not directly related to the individual quantities
     if iipanel == 0:
         axx = get_xaxis_redshift(ax)
@@ -341,16 +396,14 @@ def legend_item(ax, xr, y, text, alpha=1, ls='-', color='black',
              text, va='center', ha=text_ha, alpha=alpha, color=color)
 
 
-def legend_text(ax, x, y, text, alpha=1, color='black', fontsize=8):
+def legend_text(ax, x, y, text, **kwargs):
     """Add one legend text-only item to the axes ax."""
 
     tr = ax.get_xlim()
     yr = ax.get_ylim()
 
-    plt.text(tr[0] + (tr[1]-tr[0]) * x,
-             yr[0] + (yr[1]-yr[0]) * y,
-             text, va='bottom', ha='left', alpha=alpha, color=color,
-             fontsize=fontsize)
+    plt.text(tr[0] + (tr[1]-tr[0]) * x, yr[0] + (yr[1]-yr[0]) * y,
+             text, **kwargs)
 
 
 def get_args(argv=None):
@@ -371,7 +424,13 @@ def get_args(argv=None):
     parser.add_argument('--plot_prefix', default='gallery/bh_evolution',
                         help='Prefix of output files, default: '
                              '"gallery/bh_evolution')
-
+    parser.add_argument('--snap_name', default='snapshot',
+                        help='Snapshot name prefix, default: "snapshot".')
+    parser.add_argument('--vr_file', default='vr',
+                        help='VR name prefix, default: "vr".')
+    parser.add_argument('--use_old_names', action='store_true',
+                        help='Use "old-style" output names.')
+    
     parser.add_argument('--bh_bid', type=int, nargs='+',
                         help='BID(s) of black hole to analyse. If not '
                              'specified, the selection will be made '
@@ -429,9 +488,9 @@ def find_event_times(bh_data, ibh):
         times_merger = None
     print(f"Total of {len(ind_merger)} BH mergers") 
 
-    ind_repos = np.nonzero((bh_data['NumberOfRepositions'][ibh, 1:] >
-                            bh_data['NumberOfRepositions'][ibh, :-1]) &
-                           (bh_data['NumberOfRepositions'][ibh, 1:] > 0))[0]
+    ind_repos = np.nonzero((bh_data[num_repos_name][ibh, 1:] >
+                            bh_data[num_repos_name][ibh, :-1]) &
+                           (bh_data[num_repos_name][ibh, 1:] > 0))[0]
 
     if len(ind_repos) > 0:
         times_repos = bh_data['Times'][ind_repos]
@@ -478,6 +537,21 @@ def get_yaxis_viscosity(ax):
     return ax2
 
 
+def get_yaxis_sfr(ax):
+    """Create a second y axis for star formation rates."""
+    ax2 = ax.twinx()
+
+    ax2.set_xlim(ax.get_xlim())
+    ax2.set_ylim(yranges['StarFormationRate'])
+    ax2.set_ylabel(ylabels['StarFormationRate'])
+
+    ax2.spines['right'].set_color('grey')
+    ax2.yaxis.label.set_color('grey')
+    ax2.tick_params(axis='y', colors='grey')
+
+    return ax2
+
+
 def get_xaxis_redshift(ax):
     """Create a second x axis for redshifts."""
 
@@ -516,7 +590,7 @@ def get_repositioning_fractions(args, plot_config, bh_data):
     # Work out the fraction of repositions and reposition attempts in
     # these ranges of outputs
     num_steps = bh_data['NumberOfTimeSteps']
-    num_repos = bh_data['NumberOfRepositions']
+    num_repos = bh_data[num_repos_name]
     num_att = bh_data['NumberOfRepositionAttempts']
     delta_steps = num_steps[ibh, end_ind] - num_steps[ibh, start_ind]
     delta_repos = num_repos[ibh, end_ind] - num_repos[ibh, start_ind]
@@ -528,12 +602,99 @@ def get_repositioning_fractions(args, plot_config, bh_data):
     return frac_repos, frac_repos_att
 
 
+def plot_cumulative_stellar_mass(args, stars, halo, ax):
+    """Plot the cumulative stellar mass as a function of formation time."""
+
+    # Cannot do this if we have not linked to VR
+    if halo is None:
+        return
+
+    # Get stellar mass and birth time for this halo
+    stellar_mass, stellar_time, stellar_radii = stars.query_halo(halo)
+
+    xl.plot_cumdist(stellar_time, stellar_mass/1e10, norm=False, log=False,
+                    color='royalblue')
+
+    ax2 = get_yaxis_sfr(ax)    
+    plot_rate(stellar_time, stellar_mass/1e9, xr = ax.get_xlim(),
+              nbins=100, color='royalblue', linestyle=':', log=True)
+    plt.sca(ax)
+    
+    cvec = ['red', 'seagreen']
+    for iiap, iap in enumerate([5.0, 15.0]):
+        ind = np.nonzero(stellar_radii < iap)[0]
+        xl.plot_cumdist(stellar_time[ind], stellar_mass[ind]/1e10,
+                        norm=False, log=False, color=cvec[iiap])
+        plt.sca(ax2)
+        plot_rate(stellar_time[ind], stellar_mass[ind]/1e9, xr = ax.get_xlim(),
+                  nbins=100, color=cvec[iiap], linestyle=':', log=True)
+        plt.sca(ax)
+        
+    return np.sum(stellar_mass)/1e10
+
+
+def plot_rate(tquant, yquant, xr, nbins, log=False, **kwargs):
+    """Plot the rate of change of a quantity yquant."""
+    hist, edges = np.histogram(tquant, bins=nbins, range=xr, weights=yquant)
+    delta_t = edges[1:] - edges[:-1]
+    mid = edges[:-1] + delta_t / 2
+    pquant = hist/delta_t
+    if log:
+        pquant = np.log10(pquant)
+    plt.plot(mid, pquant, **kwargs)
+
+
+class Stars:
+
+    def __init__(self, args):
+        """Load star data of entire simulation."""
+    
+        # Get birth time and mass of all stars in this halo.
+        vr_snap = hd.read_attribute(f'{args.wdir}{args.bh_file}', 'Haloes',
+                                    'VR_Snapshot')
+        snap_file = f'{args.wdir}{args.snap_name}_{vr_snap:04d}.hdf5'
+        stellar_aexp = hd.read_data(snap_file, 'PartType4/BirthScaleFactors')
+        self.birth_times = aexp_to_time(stellar_aexp)
+        self.mass = hd.read_data(snap_file, 'PartType4/InitialMasses') * 1e10
+        self.ids = hd.read_data(snap_file, 'PartType4/ParticleIDs')
+        coordinates = hd.read_data(snap_file, 'PartType4/Coordinates')
+        coordinates *= (
+            hd.read_attribute(snap_file, 'Header', 'Scale-factor')[0])
+
+        # Look up star IDs in VR
+        vr_file = f'{args.wdir}{args.vr_file}_{vr_snap:04d}'
+        self.haloes, vr_zred, vr_aexp = xl.connect_ids_to_vr(
+            self.ids, vr_file, require=True)
+
+        # Get radii of stars
+        halo_centres = hd.read_data(f'{vr_file}.hdf5',
+                                    'MinimumPotential/Coordinates')
+        self.radii = np.linalg.norm(
+            coordinates - halo_centres[self.haloes, :], axis=1) * 1e3
+        ind_not_in_halo = np.nonzero(self.haloes < 0)[0]
+        self.radii[ind_not_in_halo] = -1
+
+        
+    def query_halo(self, halo):
+        """Return star data for a particular halo."""
+        ind = np.nonzero(self.haloes == halo)[0]
+        return self.mass[ind], self.birth_times[ind], self.radii[ind]
+
+    
+def aexp_to_time(aexp):
+    # Cosmology instance corresponding to Swift-Planck13
+    cosmo = xl.swift_Planck_cosmology()
+
+    # Direct lookup for small number of values
+    if len(aexp) < 1000:
+        return cosmo.age(1/aexp - 1).to(u.Gyr).value
+
+    # For large input numbers, go via interpolation list
+    aexps = np.linspace(aexp.min(), aexp.max(), 200)
+    times = cosmo.age(1/aexps-1).to(u.Gyr).value
+    csi_time = interp1d(aexps, times, kind='cubic')
+    return csi_time(aexp)
+    
+    
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
