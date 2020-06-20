@@ -328,7 +328,8 @@ def write_bh_plots(writer, ibh, isnap, bh_list, plotdata_file):
                  f'height=450>\n</a>\n')
 
     # Stellar birth densities
-    stellar_densities_im = f'stellar_birth_densities_BH-BID-{ibh}.png'
+    stellar_densities_im = (f'stellar_birth_densities_BH-BID-{ibh}_snap-'
+                           f'{isnap}.png')
     writer.write(f'<a href="{stellar_densities_im}">\n'
                  f'  <img src="{stellar_densities_im}" '
                  f'alt="Stellar birth densities" '
