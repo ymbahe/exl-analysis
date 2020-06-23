@@ -114,7 +114,7 @@ def process_sim(args, isim, have_full_sim_dir):
         ind_nobh = np.nonzero(output_dict['SubgridMasses']
                                      [:, bh_vr_snap] *.0 != 0)[0]
         bpart_ids_mod[ind_nobh] = -1
-        gal_props = connect_to_galaxies(bpart_ids_mod, args)
+        gal_props = xl.connect_to_galaxies(bpart_ids_mod, args.vr_file)
             
         # Finish galaxy-based analysis
         if gal_props is not None:
