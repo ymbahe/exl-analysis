@@ -128,7 +128,6 @@ def connect_ids_to_vr(ids, vr_file, require=False):
     
     # Load VR particle IDs
     vr_ids = hd.read_data(vr_particle_file, 'Haloes/IDs')
-    vr_nums = hd.read_data(vr_particle_file, 'Haloes/Numbers')
     vr_offsets = hd.read_data(vr_particle_file, 'Haloes/Offsets')
 
     # Locate 'our' IDss in the VR ID list
@@ -142,8 +141,7 @@ def connect_ids_to_vr(ids, vr_file, require=False):
     # Now convert VR particle indices to halo indices
     halo_guess = np.searchsorted(vr_offsets, ind_in_vr[found_in_vr],
                                  side='right') - 1
-    ind_good = np.nonzero(ind_in_vr[found_in_vr] <
-                          (vr_offsets[halo_guess] + vr_nums[halo_guess]))[0]
+    ind_good = np.nonzero(ind_in_vr[found_in_vr] < vr_offsets[halo_guess+1])[0]
 
     vr_halo = np.zeros(num_ids, dtype=int) - 1
     vr_halo[found_in_vr[ind_good]] = halo_guess[ind_good]
