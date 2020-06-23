@@ -137,6 +137,8 @@ def match_haloes(snap_a, snap_b, gate_ab=None):
         # Get IDs for current halo in A
         ids_a = snap_a.get_halo_ids(ihalo_a, ptype='DM')
 
+        set_trace()
+        
         # Get haloes of these IDs in B
         inds_in_b = gate_ab.in_int(ids_a)
         haloes_in_b, in_halo_in_b = snap_b.ind_to_halo(inds_in_b)
@@ -158,17 +160,18 @@ class Snapshot:
     Parameters
     ----------
     vr_file : str
-        The name of the VR catalogue of the snapshot to be represented.
+        The (base) name of the VR catalogue of the snapshot to be represented.
     """
 
     def __init__(self, vr_file):
-        vr_file = f'{vr_file}.hdf5'
-        vr_part_file = f'{vr_file}_particles.hdf5'
+        self.vr_file = f'{vr_file}.hdf5'
+        self.vr_part_file = f'{vr_file}_particles.hdf5'
 
-        self.ids = hd.read_data(vr_part_file, 'Haloes/IDs')
-        self.ptypes = hd.read_data(vr_part_file, 'Haloes/PartTypes')
-        self.offsets = hd.read_data(vr_part_file, 'Haloes/Offsets')
-        self.lengths = hd.read_data(vr_part_file, 'Haloes/Numbers')
+        self.ids = hd.read_data(self.vr_part_file, 'Haloes/IDs')
+        self.ptypes = hd.read_data(self.vr_part_file, 'Haloes/PartTypes')
+        self.offsets = hd.read_data(self.vr_part_file, 'Haloes/Offsets')
+        self.lengths = hd.read_data(self.vr_part_file, 'Haloes/Numbers')
+
         self.n_haloes = len(self.lengths)
 
     def get_halo_ids(self, halo, ptype=None):
