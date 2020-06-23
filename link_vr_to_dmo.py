@@ -134,13 +134,11 @@ def match_haloes(snap_a, snap_b, gate_ab=None):
 
     for ihalo_a in range(snap_a.n_haloes):
         
-        # Get IDs for current halo in A
-        ids_a = snap_a.get_halo_ids(ihalo_a, ptype='DM')
-
-        set_trace()
+        # Get *indices* for current halo in A
+        inds_a = snap_a.get_halo_inds(ihalo_a, ptype=1)
         
-        # Get haloes of these IDs in B
-        inds_in_b = gate_ab.in_int(ids_a)
+        # Get haloes of these indices in B
+        inds_in_b = gate_ab.in_int(inds_a)
         haloes_in_b, in_halo_in_b = snap_b.ind_to_halo(inds_in_b)
 
         # Check if most common halo accounts for >= 1/2 of IDs
@@ -174,32 +172,32 @@ class Snapshot:
 
         self.n_haloes = len(self.lengths)
 
-    def get_halo_ids(self, halo, ptype=None):
-        """Retrieve the IDs for one particular halo.
+    def get_halo_inds(self, halo, ptype=None):
+        """Retrieve the indices for one particular halo.
 
         Parameters
         ----------
         halo : int
-            The index of the halo for which to retrieve IDs.
+            The index of the halo for which to retrieve indices.
         ptype : str or None, optional
-            If not None (default), retrieve only IDs of the selected type
+            If not None (default), retrieve only indices of the selected type
             (options: 'DM', 'baryons').
         """
-        halo_ids = self.ids[self.offsets[halo] :
-                            self.offsets[halo] + self.lengths[halo]]
+        halo_inds = np.arange(self.offsets[halo],
+                              self.offsets[halo] + self.lengths[halo],
+                              dtype=int)
 
         if ptype is None:
-            return halo_ids
+            return halo_inds
 
-        halo_ptype = self.ptypes[self.offsets[halo] :
-                                 self.offsets[halo] + self.lengths[halo]]
+        halo_ptype = self.ptypes[halo_inds]
 
         if isinstance(ptype, int):
             ind_ptype = np.nonzero(halo_ptype == ptype)[0]
-            return halo_ids[ind_ptype]
+            return halo_inds[ind_ptype]
         if ptype.lower().startswith('baryon'):
             ind_baryon = np.nonzero(halo_ptype != 1)[0]
-            return halo_ids[ind_baryon]
+            return halo_inds[ind_baryon]
 
         # If we get here, something has gone wrong
         print("Ehm... You should not have gotten here.")
