@@ -166,6 +166,7 @@ class Snapshot:
         vr_part_file = f'{vr_file}_particles.hdf5'
 
         self.ids = hd.read_data(vr_part_file, 'Haloes/IDs')
+        self.ptypes = hd.read_data(vr_part_file, 'Haloes/PartTypes')
         self.offsets = hd.read_data(vr_part_file, 'Haloes/Offsets')
         self.lengths = hd.read_data(vr_part_file, 'Haloes/Numbers')
         self.n_haloes = len(self.lengths)
@@ -186,11 +187,15 @@ class Snapshot:
 
         if ptype is None:
             return halo_ids
-        if ptype.lower() == 'dm':
-            ind_dm = np.nonzero(halo_ids % 2 == 0)[0]
-            return halo_ids[ind_dm]
+
+        halo_ptype = self.ptypes[self.offsets[halo] :
+                                 self.offsets[halo] + self.lengths[halo]]
+
+        if isinstance(ptype, int):
+            ind_ptype = np.nonzero(halo_ptype == ptype)[0]
+            return halo_ids[ind_ptype]
         if ptype.lower().startswith('baryon'):
-            ind_baryon = np.nonzero(halo_ids % 2 == 1)[0]
+            ind_baryon = np.nonzero(halo_ptype != 1)[0]
             return halo_ids[ind_baryon]
 
         # If we get here, something has gone wrong
