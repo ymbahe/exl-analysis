@@ -76,35 +76,51 @@ def process_sim(isim, args):
 
 def process_snapshot(isim, isnap, args):
     """Process one snapshot."""
+    print("")
     print(f"Processing snapshot {isnap}...")
-
+    
     snap_this = Snapshot(f'{args.wdir}{args.vr_name}_{isnap:04d}')
-    snap_dmo = Snapshot(f'{args.dmo_dir}{args.vr_name}_{isnap:04d}')
+    snap_dmo = Snapshot(f'{args.dmo_dir}{args.vr_name}_{isnap:04d}',
+                        sim_type='dm-only')
 
     # Find the best match in the DMO snapshot for each halo in this sim
-    match_in_dmo = match_haloes(snap_this, snap_dmo)
+    print("\nMatching from this to DMO...")
+    match_in_dmo, gate_this_dmo, match_frac_in_dmo = (
+        match_haloes(snap_this, snap_dmo))
 
     # ... and do the same in reverse
-    match_in_this = match_haloes(snap_dmo, snap_this)
+    print("\nMatching from DMO to this...")
+    match_in_this, gate_dmo_this, match_frac_in_this = (
+        match_haloes(snap_dmo, snap_this))
 
     # Reject matches that are not bijective
     ind_non_bijective = np.nonzero((match_in_dmo < 0) |
                                    (match_in_this[match_in_dmo] !=
                                     np.arange(snap_this.n_haloes)))[0]
     match_in_dmo[ind_non_bijective] = -1
-
+    ind_not_matched = np.nonzero(match_in_dmo < 0)[0]
+    
     # Write out results
     vr_file_this = f'{args.wdir}{args.vr_name}_{isnap:04d}.hdf5'
     vr_file_dmo = f'{args.dmo_dir}{args.vr_name}_{isnap:04d}.hdf5'
 
     hd.write_data(vr_file_this, 'MatchInDMO/Haloes', match_in_dmo)
-
+    hd.write_data(vr_file_this, 'MatchInDMO/MatchFractionInDMO',
+                  match_frac_in_dmo)
+    match_frac_in_this_aligned = match_frac_in_this[match_in_dmo]
+    match_frac_in_this_aligned[ind_not_matched] = np.nan
+    hd.write_data(vr_file_this, 'MatchInDMO/MatchFractionInThis',
+                  match_frac_in_this_aligned)
+    
     for iset in ['M200crit', 'Masses', 'MaximumCircularVelocities']:
         data_dmo = hd.read_data(vr_file_dmo, iset)
-        hd.write_data(vr_file_this, f'MatchInDMO/{iset}')
+        data_dmo_aligned = data_dmo[match_in_dmo]
+        data_dmo_aligned[ind_not_matched] = np.nan
+        
+        hd.write_data(vr_file_this, f'MatchInDMO/{iset}', data_dmo_aligned)
 
 
-def match_haloes(snap_a, snap_b, gate_ab=None):
+def match_haloes(snap_a, snap_b, gate_ab=None, max_num=100):
     """Core matching function, returns halo matches in another sim.
 
     It analyses the haloes in simulation A, and finds the matching haloes
@@ -119,11 +135,16 @@ def match_haloes(snap_a, snap_b, gate_ab=None):
     gate_ab : gate instance
         Gate linking snaps A and B. If None (default), it is created
         internally.
+    max_num : int, optional
+        Only consider the first `max_num` particles from snapshot A.
+        Default: 100.
 
     Returns
     -------
     match_in_b : ndarray (int)
         Matching indices in B for each halo in A.
+    match_frac : ndarray (float)
+        Fraction of particles that are matched, for each halo in A.
     gate_ab : gate instance
         (Updated) gate linking A and B.
     """
@@ -132,24 +153,44 @@ def match_haloes(snap_a, snap_b, gate_ab=None):
     if gate_ab is None:
         gate_ab = hx.Gate(snap_a.ids, snap_b.ids)
 
+    match_in_b = np.zeros(snap_a.n_haloes, dtype=int) - 1
+    match_frac = np.zeros(snap_a.n_haloes)
+    idot = 0
     for ihalo_a in range(snap_a.n_haloes):
-        
+
+        if ihalo_a == int(snap_a.n_haloes/10 * idot):
+            print(f"Halo {ihalo_a} / {snap_a.n_haloes}...")
+            idot += 1
+            
         # Get *indices* for current halo in A
         inds_a = snap_a.get_halo_inds(ihalo_a, ptype=1)
+
+        if len(inds_a) > max_num:
+            inds_a = inds_a[:max_num]
+        
+        # Assume that any halo with fewer than 50 particles is
+        # un-matchable
+        if len(inds_a) < 50:
+            continue
         
         # Get haloes of these indices in B
-        inds_in_b = gate_ab.in_int(inds_a)
+        inds_in_b, matched_in_b = gate_ab.in_int(inds_a)
         haloes_in_b, in_halo_in_b = snap_b.ind_to_halo(inds_in_b)
 
         # Check if most common halo accounts for >= 1/2 of IDs
-        if len(ind_halo_in_b) >= (0.5 * len(inds_a)):
+        if len(in_halo_in_b) >= (0.5 * len(inds_a)):
             match_hist = np.bincount(haloes_in_b[in_halo_in_b])
-            best_match = np.argmax(match_hist)
+            if len(match_hist) == 0:
+                print("Why could we not match to a single halo?")
+                set_trace()
 
+            best_match = np.argmax(match_hist)
+            match_frac[ihalo_a] = match_hist[best_match] / len(inds_a)
+            
             if match_hist[best_match] >= len(inds_a) / 2:
                 match_in_b[ihalo_a] = best_match
 
-    return match_in_b, gate_ab
+    return match_in_b, gate_ab, match_frac
 
 
 class Snapshot:
@@ -161,15 +202,20 @@ class Snapshot:
         The (base) name of the VR catalogue of the snapshot to be represented.
     """
 
-    def __init__(self, vr_file):
+    def __init__(self, vr_file, sim_type='Hydro'):
         self.vr_file = f'{vr_file}.hdf5'
         self.vr_part_file = f'{vr_file}_particles.hdf5'
 
         self.ids = hd.read_data(self.vr_part_file, 'Haloes/IDs')
+        if sim_type.lower().startswith('dm'):
+            self.ids *= 2
+    
         self.ptypes = hd.read_data(self.vr_part_file, 'Haloes/PartTypes')
         self.offsets = hd.read_data(self.vr_part_file, 'Haloes/Offsets')
         self.lengths = hd.read_data(self.vr_part_file, 'Haloes/Numbers')
-
+        if len(self.offsets) == len(self.lengths):
+            self.offsets = np.concatenate((self.offsets, [len(self.ids)]))
+        
         self.n_haloes = len(self.lengths)
 
     def get_halo_inds(self, halo, ptype=None):
@@ -183,8 +229,7 @@ class Snapshot:
             If not None (default), retrieve only indices of the selected type
             (options: 'DM', 'baryons').
         """
-        halo_inds = np.arange(self.offsets[halo],
-                              self.offsets[halo] + self.lengths[halo],
+        halo_inds = np.arange(self.offsets[halo], self.offsets[halo+1],
                               dtype=int)
 
         if ptype is None:
