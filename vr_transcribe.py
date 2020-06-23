@@ -233,8 +233,11 @@ list_particles = [
         'is equal to the total number of IDs. This makes it possible to '
         'access the IDs of all haloes with [Offsets[i]] : [Offsets[i+1]].',
         None, None, None, 'catalog_groups'),
-    ('Offset', 'Groups/Offset', 
-        '',
+    ('Offset', 'Groups/Offsets', 
+        'Index of the first particle ID in "IDs" that belongs to each halo. '
+        'There is one more entry here than the number of haloes: the last one '
+        'is equal to the total number of IDs. This makes it possible to '
+        'access the IDs of all haloes with [Offsets[i]] : [Offsets[i+1]].',
         None, None, None, 'catalog_SOlist'),
 
     ('Particle_types', 'Haloes/PartTypes',
@@ -562,7 +565,9 @@ def transcribe_data(data_list, vrfile_in, outfile, kind='simple',
 
                     if ikey[3] is not None:
                         outdata *= ikey[3]
-  
+
+                    write_data(outfile, outname, outdata, comment=comment)
+                        
 
 def add_coda_to_offsets(vr_part_file):
     """Add the coda to particle offsets."""
@@ -573,7 +578,7 @@ def add_coda_to_offsets(vr_part_file):
 
     for grp in ['Haloes', 'Unbound', 'Groups']:
         offsets = read_data(vr_part_file, f'{grp}/Offsets')
-        num_ids = read_attribute(vr_part_file, 'Header', num_name[grp]
+        num_ids = read_attribute(vr_part_file, 'Header', num_name[grp])
 
         offsets = np.concatenate((offsets, [num_ids]))
         write_data(vr_part_file, f'{grp}/Offsets', offsets)
