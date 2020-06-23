@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 
 cvec = ['red', 'seagreen', 'royalblue']
 ap_list = [5.0, 15.0, 1e5]
-
+ap_min = [0.0, 5.0, 0.0]
 
 def main():
     """Main program loop."""
@@ -162,11 +162,11 @@ def process_snapshot(args, bh_list, bh_data, isim, isnap):
 
     star_birth_densities, star_initial_masses = (
         get_birth_densities(args, isnap))
-    star_haloes, star_radii = get_star_haloes(args, isnap)
+    star_haloes, star_radii, aexp = get_star_haloes(args, isnap)
 
     for iibh, ibh in enumerate(bh_list):
         process_bh(args, ibh, bh_data, isim, isnap, star_birth_densities,
-                   star_initial_masses, star_radii, star_haloes)
+                   star_initial_masses, star_radii, star_haloes, aexp)
 
 
 def get_birth_densities(args, isnap):
@@ -212,11 +212,11 @@ def get_star_haloes(args, isnap):
     
     args.aexp = aexp
     args.zred = zred
-    return star_haloes, star_radii
+    return star_haloes, star_radii, aexp
 
 
 def process_bh(args, ibh, bh_data, isim, isnap, star_birth_densities,
-               star_masses, star_radii, star_haloes):
+               star_masses, star_radii, star_haloes, aexp):
     """Make the plot for one BH/galaxy, at one snapshot."""
     
     fig = plt.figure(figsize=(4.5, 4.0))
@@ -231,18 +231,23 @@ def process_bh(args, ibh, bh_data, isim, isnap, star_birth_densities,
                  color='grey')
 
     xl.legend_item(ax, [0.03, 0.1], 0.95, 'Full simulation', color='grey')
+
+    add_eagle(ax, 'Ref-L0025N0376', aexp, linestyle='--', legend_y = 0.6)
+    add_eagle(ax, 'FBconst-L0025N0376', aexp, linestyle=':', legend_y = 0.53)
     
     # Plot distribution only for current BH/galaxy, in set of apertures
     ind_in_halo = np.nonzero(star_haloes == bh_data['Haloes'][ibh])[0]
 
     for iiap, iap in enumerate(ap_list):
-        subind_in_ap = np.nonzero(star_radii[ind_in_halo] < iap)[0]
+        iap_min = ap_min[iiap]
+        subind_in_ap = np.nonzero((star_radii[ind_in_halo] < iap) &
+                                  (star_radii[ind_in_halo] >= iap_min))[0]
         plot_cumdist(star_birth_densities, star_masses,
                      ind_in_halo[subind_in_ap],
                      color=cvec[iiap])
 
         if iiap < 2:
-            legend_text = 'r 'r'$<$' f' {iap} kpc'
+            legend_text = f'{iap_min} ' r'$< r <$' f' {iap} kpc'
         else:
             legend_text = 'Whole galaxy'
         xl.legend_item(ax, [0.03, 0.1], 0.86-iiap*0.07, legend_text,
@@ -251,13 +256,32 @@ def process_bh(args, ibh, bh_data, isim, isnap, star_birth_densities,
     # Save figure
     plt.subplots_adjust(left=0.15, right=0.96, bottom=0.15, top=0.95)
     plt.show
-    plotloc = f'{args.wdir}{args.plot_prefix}_BH-BID-{ibh}.png'
+    plotloc = f'{args.wdir}{args.plot_prefix}_BH-BID-{ibh}_snap-{isnap}.png'
     if not os.path.isdir(os.path.dirname(plotloc)):
         os.makedirs(os.path.dirname(plotloc))
     plt.savefig(plotloc, dpi=200)
     plt.close('all')
 
 
+def add_eagle(ax, eagle_name, aexp, linestyle='-', legend_y=None):
+    """Add distribution from an EAGLE simulation."""
+
+    eagle_aexps = hd.read_data('./comparison_data/EAGLE_birth_densities.hdf5',
+                               f'{eagle_name}/ScaleFactors')
+    isnap_eagle = np.argmin(np.abs(aexp - eagle_aexps))
+    print(f"Adding EAGLE snap {isnap_eagle}...")
+    eagle_x = hd.read_data('./comparison_data/EAGLE_birth_densities.hdf5',
+                           f'{eagle_name}/S{isnap_eagle}/nH_by_nCrit')
+    eagle_y = hd.read_data('./comparison_data/EAGLE_birth_densities.hdf5',
+                           f'{eagle_name}/S{isnap_eagle}/CumulativeMassFraction')
+
+    plt.plot(eagle_x, eagle_y, color='black', linestyle=linestyle)
+
+    if legend_y is not None:
+        xl.legend_item(ax, [0.03, 0.1], legend_y, eagle_name, color='black',
+                       ls=linestyle, fontsize=9)
+
+    
 def plot_cumdist(quantities, weights=None, indices=None, **kwargs):
     """Plot a cumulative distribution."""
 
@@ -273,6 +297,7 @@ def plot_cumdist(quantities, weights=None, indices=None, **kwargs):
         yquant = np.cumsum(weights[indices[sorter]]) / np.sum(weights[indices])
 
     plt.plot(xquant, yquant, **kwargs)
+
     
         
 if __name__ == '__main__':
