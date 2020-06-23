@@ -6,7 +6,7 @@ import time
 from pdb import set_trace
 import argparse
 import glob
-from hydrangea.hdf5 import read_data, write_data, write_attribute
+from hydrangea.hdf5 import read_data, write_data, write_attribute, read_attribute
 import h5py as h5
 import os
 import local
@@ -222,23 +222,35 @@ list_other_files = [
 
 list_particles = [
     ('Offset', 'Haloes/Offsets',
-        'Index of the first particle ID in "IDs" that belongs to each halo.', 
+        'Index of the first particle ID in "IDs" that belongs to each halo. '
+        'There is one more entry here than the number of haloes: the last one '
+        'is equal to the total number of IDs. This makes it possible to '
+        'access the IDs of all haloes with [Offsets[i]] : [Offsets[i+1]].', 
         None, None, None, 'catalog_groups'),
     ('Offset_unbound', 'Unbound/Offsets',
-        'Index of the first particle ID in "IDs" that belongs to each halo.',
+        'Index of the first particle ID in "IDs" that belongs to each halo. '
+        'There is one more entry here than the number of haloes: the last one '
+        'is equal to the total number of IDs. This makes it possible to '
+        'access the IDs of all haloes with [Offsets[i]] : [Offsets[i+1]].',
         None, None, None, 'catalog_groups'),
+    ('Offset', 'Groups/Offset', 
+        '',
+        None, None, None, 'catalog_SOlist'),
+
     ('Particle_types', 'Haloes/PartTypes',
         'Types of all particles associated with haloes. Particles belonging to '
         'halo i are listed in indices [Offsets[i]] : [Offsets[i+1]].',
         None, None, None, 'catalog_parttypes'),
-    ('Particle_IDs', 'Haloes/IDs', '', None, None, None, 'catalog_particles'),
+    ('Particle_IDs', 'Haloes/IDs',
+        'Particle IDs of all particles bound to haloes. The IDs for halo i '
+        'are stored at Offsets[i] : Offsets[i+1].',
+        None, None, None, 'catalog_particles'),
+
     ('Particle_types', 'Unbound/PartTypes', '', None, None, None, 'catalog_parttypes.unbound'),
     ('Particle_IDs', 'Unbound/IDs', '', None, None, None, 'catalog_particles.unbound'),
-    ('Offset', 'Groups/Offset', '', None, None, None, 'catalog_SOlist'),
     ('Particle_IDs', 'Groups/IDs', '', None, None, None, 'catalog_SOlist'),
     ('Particle_types', 'Groups/PartTypes', '', None, None, None, 'catalog_SOlist'),
-    ('SO_size', 'Groups/Numbers', '', None, None, None, 'catalog_SOlist'),
-    ('npart', 'Haloes/Numbers', '', None, None, None, 'properties')
+    ('SO_size', 'Groups/Numbers', '', None, None, None, 'catalog_SOlist')
 ]
 
        
@@ -331,6 +343,7 @@ def process_snap(wdir, out_file_base, isnap, ivsnap):
     print("Transcribing particle links...")
     transcribe_data(list_particles, vrfile_base, outfile_particles,
                     mixed_source=True)
+    add_coda_to_offsets(outfile_particles)
 
     print("Transcribing profiles...")
     transcribe_data(list_profiles, vrfile_prof, outfile, kind='profiles')
@@ -349,6 +362,7 @@ def transcribe_metadata(vrfile_base, outfile, outfile_particles):
     vrfile_CPU = vrfile_base + 'catalog_particles.unbound'
     vrfile_CP = vrfile_base + 'catalog_particles'
     vrfile_prof = vrfile_base + 'profiles'
+    vrfile_CS = vrfile_base + 'catalog_SOlist'
 
     # Copy the Header groups.
     # In future, this should be done properly, converting strings to numbers...
@@ -371,6 +385,8 @@ def transcribe_metadata(vrfile_base, outfile, outfile_particles):
     num_bound_total = read_data(vrfile_CP, 'Total_num_of_particles_in_all_groups')[0]
     num_unbound = read_data(vrfile_CPU, 'Num_of_particles_in_groups')[0]
     num_unbound_total = read_data(vrfile_CPU, 'Total_num_of_particles_in_all_groups')[0]
+    num_part_so = read_data(vrfile_CS, 'Num_of_particles_in_SO_regions')[0]
+    num_part_so_total = read_data(vrfile_CS, 'Total_num_of_particles_in_SO_regions')[0]
     flag_inclusive_profiles = read_data(vrfile_prof, 'Inclusive_profiles_flag')[0]
     num_bin_edges = read_data(vrfile_prof, 'Num_of_bin_edges')[0]
     radial_bin_edges = read_data(vrfile_prof, 'Radial_bin_edges')
@@ -387,6 +403,8 @@ def transcribe_metadata(vrfile_base, outfile, outfile_particles):
     write_attribute(outfile, 'Header', 'NumberOfBoundParticles_Total', num_bound_total)
     write_attribute(outfile, 'Header', 'NumberOfUnboundParticles', num_unbound)
     write_attribute(outfile, 'Header', 'NumberOfUnboundParticles_Total', num_unbound_total)
+    write_attribute(outfile, 'Header', 'NumberOfSOParticles', num_part_so)
+    write_attribute(outfile, 'Header', 'NumberOfSOParticles_Total', num_part_so_total)
 
     # Write profile-specific metadata directly to that group
     write_attribute(outfile, 'Profiles', 'Flag_Inclusive', flag_inclusive_profiles)
@@ -544,9 +562,21 @@ def transcribe_data(data_list, vrfile_in, outfile, kind='simple',
 
                     if ikey[3] is not None:
                         outdata *= ikey[3]
+  
 
-                    write_data(outfile, outname, outdata, comment=comment)
+def add_coda_to_offsets(vr_part_file):
+    """Add the coda to particle offsets."""
 
+    num_name = {'Haloes': 'NumberOfBoundParticles_Total',
+                'Unbound': 'NumberOfUnboundParticles_Total',
+                'Groups': 'NumberOfSOParticles_Total'}
+
+    for grp in ['Haloes', 'Unbound', 'Groups']:
+        offsets = read_data(vr_part_file, f'{grp}/Offsets')
+        num_ids = read_attribute(vr_part_file, 'Header', num_name[grp]
+
+        offsets = np.concatenate((offsets, [num_ids]))
+        write_data(vr_part_file, f'{grp}/Offsets', offsets)
 
 
 if __name__ == '__main__':
