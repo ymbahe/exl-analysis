@@ -135,10 +135,10 @@ def match_haloes(snap_a, snap_b, gate_ab=None):
     for ihalo_a in range(snap_a.n_haloes):
         
         # Get IDs for current halo in A
-        inds_a = snap_a.get_halo_ids(ihalo_a, ptype='DM')
+        ids_a = snap_a.get_halo_ids(ihalo_a, ptype='DM')
 
         # Get haloes of these IDs in B
-        inds_in_b = gate_ab.in_int(inds_a)
+        inds_in_b = gate_ab.in_int(ids_a)
         haloes_in_b, in_halo_in_b = snap_b.ind_to_halo(inds_in_b)
 
         # Check if most common halo accounts for >= 1/2 of IDs
