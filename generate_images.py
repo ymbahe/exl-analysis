@@ -44,9 +44,10 @@ def main():
     parser.add_argument('--numpix', type=int,
                         help='Size of images in pixels, default: 1000',
                         default=1000)
-    parser.add_argument('--plot_prefix', default='gallery/vr-plots',
+    parser.add_argument('--gallery_dir', default='gallery')
+    parser.add_argument('--plot_prefix', default='gallery/vr_plots',
                         help='Prefix for plot files, default: '
-                             'gallery/vr-plots')
+                             'gallery/vr_plots')
     parser.add_argument('--snapshots', nargs='+', type=int,
                         help='Snapshots for which to set up websites.')
     parser.add_argument('--snap_name', default='snapshot',
@@ -92,7 +93,8 @@ def main():
     if os.path.isfile(args.plotdata_file):
         bh_list = hd.read_data(args.plotdata_file, 'BlackHoleBIDs')
         select_list = None
-
+        print(f"Using pre-created BH list with {len(bh_list)} BHs.")
+        
     else:    
         # Find BHs we are intereste in, load data
         select_list = [
@@ -159,6 +161,7 @@ def generate_image_script(args, bh_list):
                                     f'--bh_mmax {args.bh_mmax} '
                                     f'--imtype {iim[1]} --coda {get_coda(iap)} '
                                     f'--numpix {args.numpix} --nosave '
+                                    f'--snap_name {args.snap_name} '
                                     f'{specific_options} '
                                     f'{iim[2]}\n')
 
@@ -181,9 +184,9 @@ def generate_track_script(args, bh_list):
 def generate_website(args, bh_data, bh_list):
     """Generate a simple website displaying all images."""
     
-    if not os.path.isdir(f'{args.wdir}/gallery'):
-        os.makedirs(f'{args.wdir}/gallery')
-    with open(f'{args.wdir}/gallery/index.html', 'w') as writer:
+    if not os.path.isdir(f'{args.wdir}/{args.gallery_dir}'):
+        os.makedirs(f'{args.wdir}/{args.gallery_dir}')
+    with open(f'{args.wdir}/{args.gallery_dir}/index.html', 'w') as writer:
 
         # Write HTML opening lines
         writer.write('<!DOCTYPE html>\n<html>\n<head>\n'
@@ -237,7 +240,7 @@ def generate_website(args, bh_data, bh_list):
                     vr_bhdata = None
                     
                 # Now write actual BH site
-                with open(f'{args.wdir}/gallery/'
+                with open(f'{args.wdir}/{args.gallery_dir}/'
                           f'index_bh-{ibh}_snap-{isnap}.html', 'w'
                           ) as writer_bh:
 
@@ -347,7 +350,7 @@ def write_bh_plots(writer, ibh, isnap, bh_list, plotdata_file):
 def write_vr_plot(writer, ibh, isnap, bh_list, plotdata_file, iiplot, iplot):
     """Write one single VR plot."""
 
-    plotloc = (f'vr-plots_{iplot[0]}-{iplot[1]}-{iplot[2]}_'
+    plotloc = (f'vr_plots_{iplot[0]}-{iplot[1]}-{iplot[2]}_'
                f'BH-{ibh}_snap-{isnap}.png')
         
     writer.write(f'<img src="{plotloc}" alt="{iplot[0]}-{iplot[1]}-'
