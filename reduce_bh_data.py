@@ -12,6 +12,9 @@ import local
 import xltools as xl
 import h5py as h5
 
+vr_extra_props = [('MatchInDMO/Haloes', 'DMO_Haloes'),
+                  ('MatchInDMO/M200crit', 'DMO_M200crit')]
+
 def main():
     """Main program"""
 
@@ -114,8 +117,10 @@ def process_sim(args, isim, have_full_sim_dir):
         ind_nobh = np.nonzero(output_dict['SubgridMasses']
                                      [:, bh_vr_snap] *.0 != 0)[0]
         bpart_ids_mod[ind_nobh] = -1
-        gal_props = xl.connect_to_galaxies(bpart_ids_mod, args.vr_file)
-            
+        vr_file = f'{args.wdir}{args.vr_file}_{args.vr_snap:04d}'
+        gal_props = xl.connect_to_galaxies(bpart_ids_mod, vr_file,
+                                           extra_props=vr_extra_props)
+
         # Finish galaxy-based analysis
         if gal_props is not None:
             finish_galaxy_analysis(output_dict, gal_props, args)
@@ -144,6 +149,7 @@ def get_vr_props(args):
     aexp = float(hd.read_attribute(args.vr_outfile, 'SimulationInfo',
                                    'ScaleFactor'))
     args.vr_zred = 1/aexp - 1
+    args.vr_aexp = aexp
     
     
 def find_black_ids(args):
@@ -302,12 +308,12 @@ def finish_galaxy_analysis(output_dict, gal_props, args):
 
     stime = time.time()
     
-    haloes_unique = np.unique(gal_props['halo'])
-    flag_most_massive = np.zeros(len(gal_props['halo']), dtype=int)
+    haloes_unique = np.unique(gal_props['Haloes'])
+    flag_most_massive = np.zeros(len(gal_props['Haloes']), dtype=int)
     
     for ihalo in haloes_unique:
         if ihalo < 0: continue  # Don't care about out-of-halo BHs
-        ind_in_this = np.nonzero(gal_props['halo'] == ihalo)[0]
+        ind_in_this = np.nonzero(gal_props['Haloes'] == ihalo)[0]
         msg_thishalo = output_dict['SubgridMasses'][ind_in_this, ind_for_vr]
         try:
             max_in_this = np.nanargmax(msg_thishalo)
@@ -487,7 +493,7 @@ def write_output_file(output_dict, comment_dict, bpart_ids,
 
     if gal_props is not None:
     
-        hd.write_data(args.out_dir + args.out_file, 'Haloes', gal_props['halo'],
+        hd.write_data(args.out_dir + args.out_file, 'Haloes', gal_props['Haloes'],
                   comment='Index of the velociraptor halo containing each '
                           f'black hole at redshift {args.vr_zred:.3f}.')
         hd.write_attribute(args.out_dir + args.out_file, 'Haloes',
@@ -505,7 +511,7 @@ def write_output_file(output_dict, comment_dict, bpart_ids,
                   comment='Star formation rates (< 30kpc) of the halo '
                           'containing the black holes at redshift '
                           f'{args.vr_zred:.3f} [M_sun/yr].')
-        hd.write_data(args.out_dir + args.out_file, 'Halo_M200c', gal_props['M200'],
+        hd.write_data(args.out_dir + args.out_file, 'Halo_M200c', gal_props['M200c'],
                   comment='Halo virial masses (M200c) of the halo containing '
                           'the black holes at redshift {args.vr_zred:.3f} '
                           '[M_sun].')
@@ -517,7 +523,19 @@ def write_output_file(output_dict, comment_dict, bpart_ids,
                   gal_props['flag_most_massive_bh'],
                   comment='1 if this is the most massive black hole in its '
                           f'halo at redshift {args.vr_zred}, 0 otherwise.')
-    
+
+        hd.write_data(args.out_dir + args.out_file, 'DMO_Haloes',
+                      gal_props['DMO_Haloes'],
+                      comment='Index of the matched velociraptor halo in the '
+                              'corresponding DM-only simulation, at redshift '
+                              f'{args.vr_zred} (-1 if no bijective match).')
+
+        hd.write_data(args.out_dir + args.out_file, 'DMO_M200c',
+                      gal_props['DMO_M200crit'],
+                      comment='Virial masses (M200c) of the matched halo in '
+                              'the corresponding DM-only simulation at '
+                              f'redshift {args.vr_zred}.')
+        
     for dset in dataset_list:
         hd.write_data(args.out_dir + args.out_file, dset, output_dict[dset],
             comment=comment_dict[dset])

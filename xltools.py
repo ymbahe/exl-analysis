@@ -267,11 +267,13 @@ def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None,
             try:
                 selector_data = bh_data[selector[0]][sel]
                 if len(selector_data.shape) == 1:
-                    ind_subsel = np.nonzero(cmp(bh_data[selector[0]][sel],
-                                                selector[2]))[0]
+                    ind_subsel = np.nonzero((cmp(bh_data[selector[0]][sel],
+                                                 selector[2])) &
+                                            (bh_data[selector[0]][sel] * 0 == 0))[0]
                 elif len(selector_data.shape) == 2:
-                    ind_subsel = np.nonzero(cmp(selector_data[:, selector[3]],
-                                                selector[2]))
+                    ind_subsel = np.nonzero((cmp(selector_data[:, selector[3]],
+                                                 selector[2])) &
+                                            (selector_data[:, selector[3]] * 0 == 0))[0]
                 else:
                     print("3+ dimensional selector arrays not yet handled.")
                     set_trace()

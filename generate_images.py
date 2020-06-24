@@ -370,6 +370,9 @@ def write_vr_plot(writer, ibh, isnap, bh_list, plotdata_file, iiplot, iplot):
     # Add a link for each individual BH to the map...
     for ixbh, xbh in enumerate(bh_list):
 
+        if imx[ixbh] * 0 != 0 or imy[ixbh] * 0 != 0:
+            continue
+        
         x_this = int(imx[ixbh] * 450)
         y_this = int(imy[ixbh] * 450)
         rad = 5

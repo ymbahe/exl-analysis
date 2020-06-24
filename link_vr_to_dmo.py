@@ -212,11 +212,8 @@ class Snapshot:
     
         self.ptypes = hd.read_data(self.vr_part_file, 'Haloes/PartTypes')
         self.offsets = hd.read_data(self.vr_part_file, 'Haloes/Offsets')
-        self.lengths = hd.read_data(self.vr_part_file, 'Haloes/Numbers')
-        if len(self.offsets) == len(self.lengths):
-            self.offsets = np.concatenate((self.offsets, [len(self.ids)]))
-        
-        self.n_haloes = len(self.lengths)
+
+        self.n_haloes = len(self.offsets) - 1
 
     def get_halo_inds(self, halo, ptype=None):
         """Retrieve the indices for one particular halo.
@@ -258,9 +255,11 @@ class Snapshot:
         non-contiguous.
         """
         halo_candidate = np.searchsorted(self.offsets, inds, side='right') - 1
+        if np.max(halo_candidate) >= self.n_haloes:
+            set_trace()
         ind_actual = np.nonzero((halo_candidate >= 0) &
-                                (inds < self.offsets[halo_candidate]
-                                        + self.lengths[halo_candidate]))[0]
+                                (halo_candidate < self.n_haloes) &
+                                (inds < self.offsets[halo_candidate+1]))[0]
 
         haloes = np.zeros(len(inds), dtype=int) - 1
         haloes[ind_actual] = halo_candidate[ind_actual]

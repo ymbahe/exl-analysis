@@ -30,7 +30,7 @@ bh_props_list = ['Times', 'ParticleIDs',
                  'GasVelocityDispersions', 'GasDensities', 'NumberOfTimeSteps',
                  'NumberOfRepositions', 'NumberOfRepositionAttempts',
                  'NumberOfSwallows', 'NumberOfMergers', 'ViscosityFactors',
-                 'Haloes', 'NumberOfRepositionings']
+                 'Haloes', 'NumberOfRepositionings', 'Redshifts']
 
 panels = ['Masses', 'AccretionRate', 'Speeds', 'Density', 'StellarMass',
           'Repositions', 'RepositionFractions']
@@ -277,7 +277,8 @@ def plot_bh_panel(args, stars, bh_data, plot_config, iipanel):
         vgas = np.log10(np.linalg.norm(bh_data['GasRelativeVelocities']
                                               [ibh, :, inds], axis=1))
         plt.plot(times, vgas, color='black')
-        plt.plot(times, np.log10(bh_data['GasSoundSpeeds'][ibh, inds]),
+        plt.plot(times, np.log10(bh_data['GasSoundSpeeds'][ibh, inds]
+                                 / (1/(1+bh_data['Redshifts'][inds]))),
                  color='goldenrod', linestyle=':')
 
         legend_item(ax, [0.90, 0.97], 0.06, 'Gas sound speed', color='goldenrod',
