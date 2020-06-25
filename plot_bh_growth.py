@@ -112,7 +112,7 @@ def process_sim(isim, args):
     args.catloc = f'{args.wdir}{args.bh_file}'
 
     # Select BHs in this sim
-    args.plotdata_file = f'{args.wdir}gallery/vr-plots.hdf5'
+    args.plotdata_file = f'{args.wdir}{args.vrplot_prefix}.hdf5'
     if os.path.isfile(args.plotdata_file):
         bh_list = hd.read_data(args.plotdata_file, 'BlackHoleBIDs')
         select_list = None
@@ -425,6 +425,9 @@ def get_args(argv=None):
     parser.add_argument('--plot_prefix', default='gallery/bh_evolution',
                         help='Prefix of output files, default: '
                              '"gallery/bh_evolution')
+    parser.add_argument('--vrplot_prefix', default='gallery/vr_plots.hdf5',
+                        help='Prefix of VR plots, default: '
+                             '"gallery/vr_plots.hdf5"')
     parser.add_argument('--snap_name', default='snapshot',
                         help='Snapshot name prefix, default: "snapshot".')
     parser.add_argument('--vr_file', default='vr',

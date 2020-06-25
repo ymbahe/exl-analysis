@@ -11,6 +11,7 @@ import h5py as h5
 import os
 import local
 import xltools as xl
+import os
 
 print("Parsing input arguments...")
 parser = argparse.ArgumentParser(description="Parse input parameters.")
@@ -322,7 +323,9 @@ def process_snap(wdir, out_file_base, isnap, ivsnap):
     # Construct the output files (for main catalogue and for particle info)
     outfile = wdir + f'{out_file_base}_{isnap:04d}.hdf5'
     outfile_particles = wdir + f'{out_file_base}_{isnap:04d}_particles.hdf5'
-
+    if not os.path.isdir(os.path.dirname(outfile)):
+        os.makedirs(os.path.dirname(outfile))
+    
     print("Transcribing metadata...")
     num_haloes, num_groups = transcribe_metadata(
         vrfile_base, outfile, outfile_particles)

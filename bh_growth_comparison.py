@@ -41,6 +41,9 @@ def main():
     parser.add_argument('--plot_prefix', default='gallery/bh_growth_tracks',
                         help='Prefix of output files, default: '
                              '"gallery/bh_growth_tracks')
+    parser.add_argument('--vrplot_prefix', default='gallery/vr_plots',
+                        help='Prefix of VR plots, default: '
+                             '"gallery/vr_plots".')
     parser.add_argument('--plot_mass_range', type=float, nargs='+',
                         help='Min and max mass of plot range, default: '
                              '5.0 8.5', default=[5.0, 8.5])
@@ -82,7 +85,7 @@ def main():
     # Name of the input catalogue, containing all the data to plot
     args.catloc = f'{args.wdir}{args.bh_file}'
 
-    args.plotdata_file = f'{args.wdir}gallery/vr-plots.hdf5'
+    args.plotdata_file = f'{args.wdir}{args.vrplot_prefix}.hdf5'
     if os.path.isfile(args.plotdata_file):
         bh_list = hd.read_data(args.plotdata_file, 'BlackHoleBIDs')
         select_list = None

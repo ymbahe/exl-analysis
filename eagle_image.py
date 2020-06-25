@@ -84,7 +84,7 @@ parser.add_argument('--cambhbid', type=int, help='Black-ID of BH to center on')
 parser.add_argument('--varpos', type=float, nargs='+',
     help='Moving frame coordinates (cMpc), [x0, y0, z0, dx, dy, dz]')
 parser.add_argument('--outdir', help='Subdir to store images in',
-    default='full')
+                    default='full')
 parser.add_argument('--scale', type=float, nargs='+', help='Scale range')
 parser.add_argument('--absscale', action='store_true', default=False)
 parser.add_argument('--propersize', action='store_true', default=False)
@@ -236,6 +236,10 @@ def image_snap(isnap):
     elif args.cambhid is not None:
         all_bh_ids = hd.read_data(snapdir, 'PartType5/ParticleIDs')
         args.cambh = np.nonzero(all_bh_ids == args.cambhid)[0]
+        if len(args.cambh) == 0:
+            print(f"BH ID {args.cambhid} does not exist, skipping.")
+            return
+        
         if len(args.cambh) != 1:
             print(f"Could not unambiguously find BH ID '{args.cambhid}'!")
             set_trace()

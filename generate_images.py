@@ -350,7 +350,7 @@ def write_bh_plots(writer, ibh, isnap, bh_list, plotdata_file):
 def write_vr_plot(writer, ibh, isnap, bh_list, plotdata_file, iiplot, iplot):
     """Write one single VR plot."""
 
-    plotloc = (f'vr_plots_{iplot[0]}-{iplot[1]}-{iplot[2]}_'
+    plotloc = (f'vr-plots_{iplot[0]}-{iplot[1]}-{iplot[2]}_'
                f'BH-{ibh}_snap-{isnap}.png')
         
     writer.write(f'<img src="{plotloc}" alt="{iplot[0]}-{iplot[1]}-'

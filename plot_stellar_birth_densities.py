@@ -67,6 +67,7 @@ def get_args(argv=None):
                         default='gallery/stellar_birth_densities',
                         help='Prefix of output files, default: '
                              '"gallery/stellar_birth_densities".')
+    parser.add_argument('--vrplot_prefix', default='gallery/vr_plots')
     parser.add_argument('--snapshots', type=int, nargs='+',
                         help='Snapshots to analyse.')
     parser.add_argument('--snap_name', default='snapshot',
@@ -116,7 +117,12 @@ def process_sim(isim, args):
     bh_props_list = ['Haloes']
     
     # Select BHs in this sim
-    if args.bh_bid is None:
+    args.plotdata_file = f'{args.wdir}{args.vrplot_prefix}.hdf5'
+    if os.path.isfile(args.plotdata_file):
+        bh_list = hd.read_data(args.plotdata_file, 'BlackHoleBIDs')
+        select_list = None
+
+    elif args.bh_bid is None:
 
         # Find BHs we are intereste in, load data
         select_list = [
@@ -141,13 +147,23 @@ def process_sim(isim, args):
             select_list.append(
                 ['SubgridMasses', '>=', args.bh_mass_range[0]/1e10, best_index])
             select_list.append(
-                ['SubgridMasses', '<=', args.bh_mass_range[1]/1e10, best_index])        
-
+                ['SubgridMasses', '<=', args.bh_mass_range[1]/1e10, best_index])
+        bh_list = None
+            
     else:
+        bh_list = args.bh_bid
         select_list = None
 
     bh_file = args.wdir + args.bh_file
-    bh_data, bh_list = xl.lookup_bh_data(bh_file, bh_props_list, select_list)
+    bh_data, bh_sel = xl.lookup_bh_data(bh_file, bh_props_list, select_list)
+
+    if bh_list is None:
+        bh_list = bh_sel
+
+    if len(bh_list) == 0:
+        print("No black holes selected, aborting.")
+        return
+
     
     # Overwrite selection with input, if specific BID(s) provided
     if args.bh_bid is not None:
@@ -228,12 +244,13 @@ def process_bh(args, ibh, bh_data, isim, isnap, star_birth_densities,
 
     # Plot distribution of all stars
     plot_cumdist(star_birth_densities, star_masses, None,
-                 color='grey')
+                 color='black')
 
-    xl.legend_item(ax, [0.03, 0.1], 0.95, 'Full simulation', color='grey')
+    xl.legend_item(ax, [0.03, 0.1], 0.95, 'Full simulation', color='black')
 
-    add_eagle(ax, 'Ref-L0025N0376', aexp, linestyle='--', legend_y = 0.6)
-    add_eagle(ax, 'FBconst-L0025N0376', aexp, linestyle=':', legend_y = 0.53)
+    add_eagle(ax, 'Ref-L0050N0752', aexp, linestyle='-', legend_y = 0.6)
+    add_eagle(ax, 'S15_AGNdT9-L0050N0752', aexp, linestyle='--', legend_y = 0.53)
+    add_eagle(ax, 'FBconst-L0050N0752', aexp, linestyle=':', legend_y = 0.46)
     
     # Plot distribution only for current BH/galaxy, in set of apertures
     ind_in_halo = np.nonzero(star_haloes == bh_data['Haloes'][ibh])[0]
@@ -275,10 +292,11 @@ def add_eagle(ax, eagle_name, aexp, linestyle='-', legend_y=None):
     eagle_y = hd.read_data('./comparison_data/EAGLE_birth_densities.hdf5',
                            f'{eagle_name}/S{isnap_eagle}/CumulativeMassFraction')
 
-    plt.plot(eagle_x, eagle_y, color='black', linestyle=linestyle)
+    plt.plot(eagle_x, eagle_y, color='grey', linestyle=linestyle)
 
     if legend_y is not None:
-        xl.legend_item(ax, [0.03, 0.1], legend_y, eagle_name, color='black',
+        xl.legend_item(ax, [0.03, 0.1], legend_y,
+                       eagle_name.replace('_', '\_'), color='grey',
                        ls=linestyle, fontsize=9)
 
     
