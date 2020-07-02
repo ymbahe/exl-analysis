@@ -68,6 +68,9 @@ parser.add_argument('snapshot', type=int, nargs='+',
     help='Snapshot (range) to image')
 parser.add_argument('--snap_name', default='snapshot',
                     help='Snapshot name prefix (default: "snapshot").')
+parser.add_argument('--bh_data_file', default='black_hole_data.hdf5',
+                    help='Name of the BH data file within the simulation '
+                         'directory (default: "black_hole_data.hdf5").')
 parser.add_argument('--ptype', type=int, help='Particle type to image',
     default=0)
 parser.add_argument('--imsize', type=float,
@@ -164,7 +167,7 @@ else:
     args.zsize = zsize
 
 if args.cambhbid is not None:
-    black_file = args.rootdir + 'black_hole_data.hdf5'
+    black_file = args.rootdir + args.bh_data_file
     args.cambhid = hd.read_data(black_file, 'ParticleIDs',
                                 read_index=args.cambhbid)
     
