@@ -113,7 +113,7 @@ def process_sim(isim, args):
 
     # Name of the input catalogue, containing all the data to plot
     args.catloc = f'{args.wdir}{args.bh_file}'
-    bh_props_list = ['Haloes']
+    bh_props_list = ['ParticleIDs']
     
     # Select BHs in this sim
     if args.bh_bid is None:
@@ -163,6 +163,9 @@ def process_snapshot(args, bh_list, bh_data, isim, isnap):
     star_birth_densities, star_initial_masses = (
         get_birth_densities(args, isnap))
     star_haloes, star_radii, aexp = get_star_haloes(args, isnap)
+    vr_file = f'{args.wdir}{args.vr_name}_{isnap:04d}'
+    bh_data['Haloes'], aexp, zred = (
+        xl.connect_ids_to_vr(bh_data['ParticleIDs'], vr_file))
 
     for iibh, ibh in enumerate(bh_list):
         process_bh(args, ibh, bh_data, isim, isnap, star_birth_densities,
@@ -219,6 +222,11 @@ def process_bh(args, ibh, bh_data, isim, isnap, star_birth_densities,
                star_masses, star_radii, star_haloes, aexp):
     """Make the plot for one BH/galaxy, at one snapshot."""
     
+    # Can't do anything if it is not located in a halo
+    if bh_data['Haloes'][ibh] < 0:
+        print(f"Warning: BH {ibh} is not in a halo in snapshot {isnap}.")
+        return
+
     fig = plt.figure(figsize=(4.5, 4.0))
     ax = plt.gca()
     ax.set_xlim((-3, 3))
