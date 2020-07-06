@@ -8,6 +8,7 @@ import local
 import xltools as xl
 from plot_routines import plot_distribution
 import argparse
+import shutil
 
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
@@ -23,14 +24,14 @@ plot_list = [('M200c', 'MStar', 'sSFR'),
              ('M200c', 'MBH', 'MStar'),
              ('M200c', 'Size', 'MStar')]
 
-ax_labels = {'M200c': r'$\log_{10}\,(M_\mathrm{200c}\,/\,\mathrm{M}_\odot)$',
+ax_labels = {'M200c': r'$\log_{10}\,(M_\mathrm{200c,\,\,DMO}\,/\,\mathrm{M}_\odot)$',
              'MStar': r'$\log_{10}\,(M_\mathrm{star}\,/\,\mathrm{M}_\odot)$',
              'MBH': r'$\log_{10}\,(m_\mathrm{BH}\,/\,\mathrm{M}_\odot)$',
              'Size': r'Stellar $R_{1/2}$ ($< 30$ kpc, Proj. 1) [kpc]',
              'sSFR': r'$\log_{10}\,(\mathrm{sSFR}\,/\,\mathrm{yr}^{-1})$'}
 
-plot_ranges = {'M200c': [11.7, 13.5],
-               'MStar': [9.0, 11.5],
+plot_ranges = {'M200c': [11.0, 13.5],
+               'MStar': [8.0, 11.5],
                'MBH': [5.0, 8.5],
                'Size': [0.0, 12.0],
                'sSFR': [-12.0, -9.5]}
@@ -115,8 +116,8 @@ def process_sim(args, isim, have_full_sim_dir):
     select_list = [
         ["Halo_MStar", '>=', args.halo_mstar_range[0]],
         ["Halo_MStar", '<', args.halo_mstar_range[1]],
-        ["Halo_M200c", '>=', args.halo_m200_range[0]],
-        ["Halo_M200c", '<', args.halo_m200_range[1]]
+        ["DMO_M200c", '>=', args.halo_m200_range[0]],
+        ["DMO_M200c", '<', args.halo_m200_range[1]]
     ]
     if not args.include_subdominant_bhs:
         select_list.append(['Flag_MostMassiveInHalo', '==', 1])
@@ -134,7 +135,7 @@ def process_sim(args, isim, have_full_sim_dir):
             ['SubgridMasses', '>=', args.bh_mass_range[0]/1e10, best_index])
         select_list.append(
             ['SubgridMasses', '<=', args.bh_mass_range[1]/1e10, best_index])        
-       
+
     bh_props_list = ['SubgridMasses', 'Redshifts', 'ParticleIDs']    
     bh_data, bh_list = xl.lookup_bh_data(args.wdir + args.bh_file,
                                          bh_props_list, select_list)
@@ -142,20 +143,28 @@ def process_sim(args, isim, have_full_sim_dir):
     if len(bh_list) == 0:
         print("No BHs selected, aborting.")
         return
-    
+
     args.sim_pointdata_loc = args.wdir + args.plot_prefix + '.hdf5'
+    if not os.path.isdir(os.path.dirname(args.sim_pointdata_loc)):
+        os.makedirs(os.path.dirname(args.sim_pointdata_loc))
+    if os.path.isfile(args.sim_pointdata_loc):
+        shutil.move(args.sim_pointdata_loc, args.sim_pointdata_loc + '.old')
     hd.write_data(args.sim_pointdata_loc, 'BlackHoleBIDs', bh_list,
                   comment='BIDs of all BHs selected for this simulation.')
 
     # Go through snapshots
     for iisnap, isnap in enumerate(args.snapshots):
 
+        print("")
+        print(f"Processing snapshot {isnap}...")
+        
         # Need to explicitly connect BHs to VR catalogue from this snap
         vr_data = xl.connect_to_galaxies(
             bh_data['ParticleIDs'][bh_list],
             f'{args.wdir}{args.vr_file}_{isnap:04d}',
             extra_props=[('ApertureMeasurements/Projection1/30kpc/'
-                          'Stars/HalfMassRadii', 'StellarHalfMassRad')])
+                         'Stars/HalfMassRadii', 'StellarHalfMassRad'),
+                         ('MatchInDMO/M200crit', 'DMO_M200c')])
 
         
         # Add subgrid mass of BHs themselves
@@ -165,11 +174,17 @@ def process_sim(args, isim, have_full_sim_dir):
         vr_data['BH_SubgridMasses'] = (
             bh_data['SubgridMasses'][bh_list, ind_bh_cat] * 1e10)
 
+        n_good_m200 = np.count_nonzero(vr_data['DMO_M200c'] * 0 == 0)
+        print(f"Have {n_good_m200} BHs with DMO_M200c, out of "
+              f"{len(bh_list)}.")
+        
         # Make plots for each BH, and "general" overview plot
+        print("Overview plot")
         generate_vr_plots(args, vr_data, isnap)
 
         if not args.summary_only:
             for iibh, ibh in enumerate(bh_list):
+                print(f"Make plot for BH-BID {ibh} ({iibh}/{len(bh_list)})")
                 generate_vr_plots(args, vr_data, isnap, iibh, ibh)
 
         print("Done!")
@@ -279,8 +294,12 @@ def make_plot(args, vr_data, iplot, isnap, iibh, ibh):
             
         icquant = np.clip(cquant[iixbh], plot_ranges[iplot[2]][0],
                                          plot_ranges[iplot[2]][1])
-
-        print(f'x={ixquant}, y={iyquant}, c={icquant}')
+        
+        if ixquant * 0 != 0 : continue
+        if iyquant * 0 != 0 and iplot[1] != 'MBH': set_trace()
+        if icquant * 0 != 0:
+            icquant = 'grey'
+        #print(f'x={ixquant}, y={iyquant}, c={icquant}')
         sc = plt.scatter([ixquant], [iyquant], c=[icquant],
                          cmap=plt.cm.viridis, marker=marker,
                          vmin=vmin, vmax=vmax, s=s, edgecolor=edgecolor,
@@ -304,6 +323,9 @@ def make_plot(args, vr_data, iplot, isnap, iibh, ibh):
     plt.close('all')
 
     # Final bit: store normalised data points in HDF5 file
+    if ibh is not None:
+        return
+    
     imx = (xquant_plt - xr[0]) / (xr[1] - xr[0])
     imx = imx*0.67 + 0.15
 
@@ -319,7 +341,7 @@ def make_plot(args, vr_data, iplot, isnap, iibh, ibh):
 def get_vrquant(vr_data, short_name):
     """Extract or compute a quantity from the VR catalogue."""
     if short_name == 'M200c':
-        return np.log10(vr_data['M200c'])
+        return np.log10(vr_data['DMO_M200c'])
     elif short_name == 'MStar':
         return np.log10(vr_data['MStar'])
     elif short_name == 'Size':

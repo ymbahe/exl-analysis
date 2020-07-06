@@ -66,6 +66,8 @@ parser = argparse.ArgumentParser(description="Parse input parameters.")
 parser.add_argument('rootdir', help='Simulation to image')
 parser.add_argument('snapshot', type=int, nargs='+',
     help='Snapshot (range) to image')
+parser.add_argument('--snap_name', default='snapshot',
+                    help='Snapshot name prefix (default: "snapshot").')
 parser.add_argument('--ptype', type=int, help='Particle type to image',
     default=0)
 parser.add_argument('--imsize', type=float,
@@ -188,7 +190,7 @@ def image_snap(isnap):
     if not os.path.isdir(os.path.dirname(plotloc)):
         os.makedirs(os.path.dirname(plotloc))
 
-    snapdir = args.rootdir + 'eagle_{:04d}.hdf5' .format(isnap)
+    snapdir = args.rootdir + f'{args.snap_name}_{isnap:04d}.hdf5'
     
     mask = sw.mask(snapdir)
     
