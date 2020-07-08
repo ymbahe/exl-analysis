@@ -45,9 +45,9 @@ def main():
                         help='Size of images in pixels, default: 1000',
                         default=1000)
     parser.add_argument('--gallery_dir', default='gallery')
-    parser.add_argument('--plot_prefix', default='gallery/vr_plots',
-                        help='Prefix for plot files, default: '
-                             'gallery/vr_plots')
+    parser.add_argument('--plot_prefix', default='vr_plots',
+                        help='Prefix for plot files (within gallery_dir), '
+                             'default: vr_plots')
     parser.add_argument('--snapshots', nargs='+', type=int,
                         help='Snapshots for which to set up websites.')
     parser.add_argument('--snap_name', default='snapshot',
@@ -89,7 +89,8 @@ def main():
     # Look up the snapshot redshifts
     get_snapshot_redshifts(args)
     
-    args.plotdata_file = f'{args.wdir}{args.plot_prefix}.hdf5'
+    args.plotdata_file = (f'{args.wdir}{args.gallery_dir}/'
+                          f'{args.plot_prefix}.hdf5')
     if os.path.isfile(args.plotdata_file):
         bh_list = hd.read_data(args.plotdata_file, 'BlackHoleBIDs')
         select_list = None
@@ -157,8 +158,9 @@ def generate_image_script(args, bh_list):
                         writer.write(f'python {curr_dir}/eagle_image.py '
                                     f'{args.wdir} {isnap} '
                                     f'--ptype {iim[0]} --imsize {iap} '
-                                    f'--cambhbid {ibh} --outdir gallery '
+                                    f'--cambhbid {ibh} --outdir {args.gallery_dir} '
                                     f'--bh_mmax {args.bh_mmax} '
+                                    f'--bh_data_file {args.bh_data_file} '
                                     f'--imtype {iim[1]} --coda {get_coda(iap)} '
                                     f'--numpix {args.numpix} --nosave '
                                     f'--snap_name {args.snap_name} '
@@ -247,7 +249,7 @@ def generate_website(args, bh_data, bh_list):
                     write_bh_header(writer_bh, ibh, isnap, bh_data, vr_bhdata,
                                     args)
                     write_bh_plots(writer_bh, ibh, isnap, bh_list,
-                                   args.plotdata_file)
+                                   args.plotdata_file, args.plot_prefix)
                     write_bh_images(writer_bh, ibh, isnap)
                     
                     # Add html closing lines to BH site
@@ -315,7 +317,7 @@ def write_bh_header(writer, ibh, isnap, bh_data, vr_bhdata, args):
                      f'{vr_bhdata["log_sSFR"]:.3f} </h3>')
 
 
-def write_bh_plots(writer, ibh, isnap, bh_list, plotdata_file):
+def write_bh_plots(writer, ibh, isnap, bh_list, plotdata_file, plot_prefix):
     """Write all the plots for a BH."""
 
     # Black hole growth tracks
@@ -342,15 +344,16 @@ def write_bh_plots(writer, ibh, isnap, bh_list, plotdata_file):
     
     for iiplot, iplot in enumerate(vr_plots):
         write_vr_plot(writer, ibh, isnap, bh_list, plotdata_file,
-                      iiplot, iplot)
+                      iiplot, iplot, plot_prefix)
 
     writer.write(f'<br>')
     
 
-def write_vr_plot(writer, ibh, isnap, bh_list, plotdata_file, iiplot, iplot):
+def write_vr_plot(writer, ibh, isnap, bh_list, plotdata_file, iiplot, iplot,
+                  plot_prefix):
     """Write one single VR plot."""
 
-    plotloc = (f'vr-plots_{iplot[0]}-{iplot[1]}-{iplot[2]}_'
+    plotloc = (f'{plot_prefix}_{iplot[0]}-{iplot[1]}-{iplot[2]}_'
                f'BH-{ibh}_snap-{isnap}.png')
         
     writer.write(f'<img src="{plotloc}" alt="{iplot[0]}-{iplot[1]}-'
