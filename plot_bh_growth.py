@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 # Conversion factor for accretion rates:
 conv_mdot = 1.023045e-02
 conv_mass = 1e10
+density_to_nH = 1.989e40 / (3.0857e22)**3 / (1.67e-27 / ((1e-2)**3)) * 0.752
 
 # Hard-coded (for now) behaviour switches
 bh_props_list = ['Times', 'ParticleIDs',
@@ -51,7 +52,7 @@ ylabels = {'Masses': r'BH masses (log $m$ [M$_\odot$])',
                              r'(log $\dot{m}$ [M$_\odot$/yr])',
            'ViscosityFactor': r'$\log_{10}$ Viscosity factor',
            'Speeds': r'Gas speeds (log $v$ [km/s])',
-           'Density': r'Gas density (log)',
+           'Density': r'Gas density (log $n_\mathrm{H}$ [cm$^{-3}$])',
            'StellarMass': r'Stellar initial mass [$10^{10}\,\mathrm{M}_\odot$]',
            'StarFormationRate': r'log$_{10}$ (SFR$_\mathrm{paleo.}$ '
                                 r'[M$_\odot$ yr$^{-1}$])',
@@ -307,8 +308,9 @@ def plot_bh_panel(args, stars, bh_data, plot_config, iipanel):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
     elif panel == 'Density':
-        plt.plot(times, np.log10(bh_data['GasDensities'][ibh, inds]),
-                 color='black', linestyle='-')
+        n_H = np.log10(bh_data['GasDensities'][ibh, inds] * density_to_nH
+                       * (1 / (1 + bh_data['Redshifts'][inds]))**(-3))
+        plt.plot(times, n_H, color='black', linestyle='-')
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
