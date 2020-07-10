@@ -42,7 +42,7 @@ yranges = {'Masses': [4.8, 8.0],
            'Speeds': [-0.9, 3.0],
            'StellarMass': [0, 10.0],
            'StarFormationRate': [-1, 2.0],
-           'Density': [4.0, 9.0],
+           'Density': [-2.0, 3.0],
            'Repositions': [0, 100],
            'RepositionFractions': [-0.02, 1.02]}
 
