@@ -314,7 +314,7 @@ def plot_bh_panel(args, stars, bh_data, plot_config, iipanel):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-    elif panel == 'StellarMass':
+    elif panel == 'StellarMass' and 'Haloes' in bh_data:
         total_mass = plot_cumulative_stellar_mass(
             args, stars, bh_data['Haloes'][ibh], ax)
 
@@ -612,7 +612,7 @@ def plot_cumulative_stellar_mass(args, stars, halo, ax):
     """Plot the cumulative stellar mass as a function of formation time."""
 
     # Cannot do this if we have not linked to VR
-    if halo is None:
+    if halo is None or not stars.is_set_up:
         return
 
     # Get stellar mass and birth time for this halo
@@ -658,6 +658,10 @@ class Stars:
         # Get birth time and mass of all stars in this halo.
         vr_snap = hd.read_attribute(f'{args.wdir}{args.bh_file}', 'Haloes',
                                     'VR_Snapshot')
+        if vr_snap is None:
+            self.is_set_up = False
+            return
+
         snap_file = f'{args.wdir}{args.snap_name}_{vr_snap:04d}.hdf5'
         stellar_aexp = hd.read_data(snap_file, 'PartType4/BirthScaleFactors')
         self.birth_times = aexp_to_time(stellar_aexp)
@@ -680,6 +684,7 @@ class Stars:
         ind_not_in_halo = np.nonzero(self.haloes < 0)[0]
         self.radii[ind_not_in_halo] = -1
 
+        self.is_set_up = True
         
     def query_halo(self, halo):
         """Return star data for a particular halo."""
