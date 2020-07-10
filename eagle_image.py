@@ -118,6 +118,8 @@ parser.add_argument('--quantrange', type=float, nargs='+',
                     default=tempRange,
                     help='Scaling range for secondary quantity (e.g. log T)')
 parser.add_argument('--no_double_image', action='store_true')
+parser.add_argument('--replot_existing', action='store_true',
+                    help='Re-plot an already existing image?')
 args = parser.parse_args()
 
 print("Checking argument consistency...")
@@ -192,7 +194,11 @@ def image_snap(isnap):
         plotloc = plotloc + f'BH-{args.cambhbid}_'
     if not os.path.isdir(os.path.dirname(plotloc)):
         os.makedirs(os.path.dirname(plotloc))
-
+    if not args.replot_existing and os.path.isfile(
+            f'{plotloc}{isnap:04d}.png'):
+        print(f"Image {plotloc}{isnap:04d}.png already exists, skipping.")
+        return
+        
     snapdir = args.rootdir + f'{args.snap_name}_{isnap:04d}.hdf5'
     
     mask = sw.mask(snapdir)
@@ -648,7 +654,7 @@ def image_snap(isnap):
         plt.close()
 
     print(f"Finished snapshot {isnap} in {(time.time() - stime):.2f} sec.")
-
+    print(f"Image saved in {plotloc}{isnap:04d}.png")
 
 
 def plot_bar():
