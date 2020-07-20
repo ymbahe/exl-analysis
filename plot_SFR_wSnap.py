@@ -11,6 +11,16 @@ import local
 import xltools as xl
 import argparse
 
+# Set up Matplotlib
+import matplotlib as mpl
+mpl.rcParams.update(mpl.rcParamsDefault)
+mpl.use('pdf')
+mpl.rcParams['font.family'] = 'serif'
+mpl.rcParams['font.serif'][0] = 'palatino'
+mpl.rc('text', usetex=True)
+import matplotlib.pyplot as plt
+
+
 def main():
 
     """Main program"""
@@ -26,7 +36,7 @@ def main():
         help='Maximum number of outputs (default: 3000)', default=3000)
     parser.add_argument('--base_dir', help='Base directory of simulations '
         '(default: [LOCAL])',
-    default=local.BASE_DIR)
+    default=f'{local.BASE_DIR}')
     parser.add_argument('--full_dir', action='store_true')
     parser.add_argument('--out_file', help='File to store output in (default: '
                 '"black_hole_data.hdf5")', default='black_hole_data.hdf5')
@@ -57,20 +67,14 @@ import hydrangea.hdf5 as hd
 import os
 import glob
 
-import matplotlib
-matplotlib.use('Pdf', warn=False)
-
-import matplotlib.pyplot as plt
 
 from pdb import set_trace
 
-matplotlib.rcParams['font.family'] = 'sans-serif'
-matplotlib.rcParams['font.serif'][0] = 'palatino'
-matplotlib.rc('text', usetex=False)
 
 # Load output redshifts
-output_list = '{local.BASE_DIR}/output_list.txt'
-output_zred = np.array(ascii.read(output_list, format='no_header')['col1'])
+#output_list = f'{local.BASE_DIR}/output_list.txt'
+#output_zred = np.array(ascii.read(output_list, format='no_header')['col1'])
+#set_trace()
 
 # EAGLE RUNS
 sfrloc_e25ref = ''
@@ -80,7 +84,7 @@ def sfr_file(id):
     """Retrieve the SFR file for a specified run ID."""
     dirs = glob.glob(f'{local.BASE_DIR}/ID{id}*/')
     if len(dirs) != 1:
-        print(f"Could not unambiguously find directory for simulation {args.sim}!")
+        print(f"Could not unambiguously find directory for simulation {id}!")
         set_trace()
     datafile = dirs[0] + f'/SFR.hdf5'
     if not os.path.isfile(datafile):
@@ -128,7 +132,7 @@ def plot_sfr(loc, color, label, simtype='Swift', boxsize=25, linewidth=1.0, line
     print("... done!")
     
 
-fig = plt.figure(figsize = (5.0, 4.5), dpi = None)
+fig = plt.figure(figsize = (6.0, 4.5), dpi = None)
 
 h = 0.6777
 obsdir = f'{local.BASE_DIR}/SFR_comparisons/observational_data'
@@ -218,8 +222,8 @@ plot_sfr(sfrloc_yse25_limNoAGN, 'seagreen', 'YB-Lim-noAGN')
 #plot_sfr(sfrloc_id6, 'red', 'ID6', boxsize = 12)
 #plot_sfr(sfrloc_id7, 'blue', 'ID7', boxsize = 12)
 #plot_sfr(sfrloc_id21, 'black', 'ID21_stdAGN')
-if mode != 'upsilon' and not mode.endswith('colibre') and not mode == 'bugtest-xl' and not mode in ['bugtest-colibre', 'angmomtest-xl', 'buglrtest-xl', 'seedtest-xl', 'newtest-xl']:
-    plot_sfr(sfr_file(22), 'gray', 'ID22_noAGN')
+#if mode != 'upsilon' and not mode.endswith('colibre') and not mode == 'bugtest-xl' and not mode in ['bugtest-colibre', 'angmomtest-xl', 'buglrtest-xl', 'seedtest-xl', 'newtest-xl', 'sn-fs-test']:
+#    plot_sfr(sfr_file(22), 'gray', 'ID22_noAGN')
 #plot_sfr(sfrloc_id23, 'gold', 'ID12\_f0p10')
 #plot_sfr(sfrloc_id23, 'seagreen', 'ID23\_f0p05')
 #plot_sfr(sfrloc_id24, 'royalblue', 'ID24\_mergerMod')
@@ -235,8 +239,8 @@ if mode == 'mergers':
     plot_sfr(sfr_file(55), 'brown', 'ID55_bugfix', boxsize=25)
 #plot_sfr(sfrloc_id56, 'orange', 'ID56_no-vel-cut', boxsize=25)
 
-if not mode.endswith('colibre') and not mode in ['bugtest-xl', 'bugtest-colibre', 'angmomtest-xl', 'buglrtest-xl', 'seedtest-xl', 'newtest-xl']:
-    plot_sfr(sfr_file(57), 'red', 'ID57_new-mergers', boxsize=25)
+#if not mode.endswith('colibre') and not mode in ['bugtest-xl', 'bugtest-colibre', 'angmomtest-xl', 'buglrtest-xl', 'seedtest-xl', 'newtest-xl', 'sn-fs-test']:
+#    plot_sfr(sfr_file(57), 'red', 'ID57_new-mergers', boxsize=25)
 
 if mode == 'upsilon':
     plot_sfr(sfr_file(58), 'goldenrod', 'ID58_no-vel-cut_new-merg', boxsize=25)
@@ -390,25 +394,100 @@ if mode == 'newtest-xl':
     plot_sfr(sfr_file(177), 'royalblue', 'ID177')
     plot_sfr(sfr_file(178), 'purple', 'ID178')
     
+if mode == 'sn-fs-test':
+    plot_sfr(sfr_file(205), 'limegreen', 'ID205')
+    plot_sfr(sfr_file(206), 'seagreen', 'ID206')    
+    plot_sfr(sfr_file(226), 'black', 'ID226')
+    plot_sfr(sfr_file(227), 'royalblue', 'ID227')
+    plot_sfr(sfr_file(228), 'skyblue', 'ID228')
+    plot_sfr(sfr_file(229), 'grey', 'ID229')
+    #plot_sfr(sfr_file(238), 'aquamarine', 'ID238')
+    plot_sfr(sfr_file(268), 'red', 'ID268')
+    plot_sfr(sfr_file(269), 'salmon', 'ID269')
+    plot_sfr(sfr_file(270), 'fuchsia', 'ID270')
+    plot_sfr(sfr_file(271), 'indianred', 'ID271')
+    plot_sfr(sfr_file(276), 'yellow', 'ID276')
+    plot_sfr(sfr_file(277), 'goldenrod', 'ID277')
+    plot_sfr(sfr_file(280), 'purple', 'ID280')
+
+if mode == 'sn-fs-new-test':
+    plot_sfr(sfr_file(204), 'grey', 'ID204\_std')
+
+    plot_sfr(sfr_file(276), 'seagreen', 'ID276\_fE0p5-5p0\_fs0p5-1')
+    plot_sfr(sfr_file(281), 'aquamarine', 'ID281\_fE0p5-5p0\_fs2-5', linestyle='--')
+    plot_sfr(sfr_file(282), 'seagreen', 'ID282\_fE0p5-5p0\_fc-3', linestyle=':')
+    plot_sfr(sfr_file(279), 'limegreen', 'ID279\_fE0p5-5p0\_fs0p5-1\_direct-rho')
+    plot_sfr(sfr_file(254), 'mediumturquoise', 'ID254\_fE0p5-5p0\_fs0p5-1\_Tmax7p5')
+
+    plot_sfr(sfr_file(277), 'goldenrod', 'ID277\_fE0p3-3p0\_fs0p5-1')
+    plot_sfr(sfr_file(273), 'yellow', 'ID273\_fE0p3-3p0\_fs2-5', linestyle='--')
+    plot_sfr(sfr_file(274), 'yellow', 'ID274\_fE0p3-3p0\_fc-3', linestyle=':')
+
+    plot_sfr(sfr_file(278), 'red', 'ID278\_fEconst\_fs0p5-1')    
+    plot_sfr(sfr_file(268), 'red', 'ID268\_fEconst\_fs1-3', linestyle='--')
+    plot_sfr(sfr_file(269), 'salmon', 'ID269\_fEconst\_fs2-5', linestyle='--')
+    plot_sfr(sfr_file(270), 'coral', 'ID270\_fEconst\_fs3-6', linestyle='--')
+
+    plot_sfr(sfr_file(271), 'purple', 'ID271\_fEnon-0p3-1p0\_fs2-5', linestyle='--')
+
+    plot_sfr(sfr_file(285), 'brown', 'ID285\_alpha-0p1', linestyle='-')
+
+if mode == 'repos-test':
+    plot_sfr(sfr_file(204), 'brown', 'ID204\_StrongRepos\_no-mergers')
+    plot_sfr(sfr_file(232), 'black', 'JB-StrongRepos')
+    plot_sfr(sfr_file(294), 'grey', 'JB-Ref')
+    
+    #plot_sfr(sfr_file(255), 'red', 'ID255\_200')
+    #plot_sfr(sfr_file(256), 'goldenrod', 'ID256\_40')
+    #plot_sfr(sfr_file(257), 'orange', 'ID257\_8')
+    #plot_sfr(sfr_file(258), 'seagreen', 'ID258\_1p6')
+    #plot_sfr(sfr_file(259), 'orange', 'ID259\_8\_M1', linestyle=":")
+    #plot_sfr(sfr_file(260), 'seagreen', 'ID260\_40\_M1', linestyle=":")
+
+    plot_sfr(sfr_file(261), 'aquamarine', 'ID261\_0p25-cs')
+    plot_sfr(sfr_file(262), 'skyblue', 'ID262\_1p0-cs')
+    plot_sfr(sfr_file(263), 'royalblue', 'ID263\_4p0-cs')
+    plot_sfr(sfr_file(264), 'purple', 'ID264\_16p0-cs')
+    
+
+if mode == 'repos-test-rgb':
+    plot_sfr(sfr_file(204), 'brown', 'ID204\_StrongRepos\_no-mergers', linewidth=1, linestyle=':')
+    plot_sfr(sfr_file(232), 'black', 'JB-StrongRepos', linewidth=1, linestyle=':')
+    plot_sfr(sfr_file(294), 'grey', 'JB-Ref', linewidth=1, linestyle=':')
+    
+    plot_sfr(sfr_file(255), 'maroon', 'ID255\_200')
+    plot_sfr(sfr_file(256), 'indianred', 'ID256\_40')
+    plot_sfr(sfr_file(257), 'lightcoral', 'ID257\_8')
+    plot_sfr(sfr_file(258), 'orange', 'ID258\_1p6')
+    plot_sfr(sfr_file(259), 'lightcoral', 'ID259\_8\_M1', linestyle="--")
+    plot_sfr(sfr_file(260), 'indianred', 'ID260\_40\_M1', linestyle="--")
+
+    plot_sfr(sfr_file(261), 'aquamarine', 'ID261\_0p25-cs')
+    #plot_sfr(sfr_file(262), 'skyblue', 'ID262\_1p0-cs')
+    #plot_sfr(sfr_file(263), 'royalblue', 'ID263\_4p0-cs')
+    plot_sfr(sfr_file(264), 'purple', 'ID264\_16p0-cs')
+
+
     
 # Add lines indicating (full) snapshots
-for iout, zout in enumerate(output_zred):
-    aexp_out = 1/(1+zout)
-    if aexp_out < 0.090909: continue
-    plt.plot((aexp_out, aexp_out), (5e-4, 2e-1), color = 'grey', linestyle=':',
-             linewidth=0.5)
-    plt.text(aexp_out, 5.5e-4, f'{iout}', color='grey', fontsize=4,
-             bbox={'facecolor':'white', 'alpha':0.5, 'edgecolor':'none'},
-             va='bottom', ha='center')
+if 1 == 0:
+    for iout, zout in enumerate(output_zred):
+        aexp_out = 1/(1+zout)
+        if aexp_out < 0.090909: continue
+        plt.plot((aexp_out, aexp_out), (5e-4, 2e-1), color = 'grey', linestyle=':',
+                linewidth=0.5)
+        plt.text(aexp_out, 5.5e-4, f'{iout}', color='grey', fontsize=4,
+                bbox={'facecolor':'white', 'alpha':0.5, 'edgecolor':'none'},
+                va='bottom', ha='center')
     
 ax = plt.gca()
-ax.set_xlim((1.0, 0.090909))
+ax.set_xlim((1.0, 0.0625))
 ax.set_ylim((5e-4, 2e-1))
 ax.set_xscale('log')
 ax.set_yscale('log')
 
-zticks = np.array([0.0, 0.2, 0.5, 1.0, 2.0, 3.0, 10.0])
-ztickname = ['0.0', '0.2', '0.5', '1', '2', '3', '10']
+zticks = np.array([0.0, 0.2, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0])
+ztickname = ['0.0', '0.2', '0.5', '1', '2', '3', '5', '7', '10', '15']
 ztickloc = 1/(1+zticks)
 
 plt.xticks(ztickloc, ztickname)
@@ -419,7 +498,7 @@ ax.set_ylabel(r'$\rho_\mathrm{SFR}\,[\mathrm{M}_\odot\,\mathrm{yr}^{-1}\,\mathrm
 
 plt.legend(fontsize=6, bbox_to_anchor=(0, 0.05, 1.0, 0.95))
 
-plt.subplots_adjust(left = 0.15, bottom = 0.15, right = 0.85)
+plt.subplots_adjust(left = 0.15, bottom = 0.15, right = 0.95, top=0.95)
 plt.show
 plt.savefig(plotloc, dpi = None, transparent = False)
 
