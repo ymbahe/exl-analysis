@@ -206,7 +206,7 @@ def process_bh(args, stars, bh_data, ibh, isim):
     plotloc = f'{args.wdir}{args.plot_prefix}_BH-BID-{ibh}.png'
     if not os.path.isdir(os.path.dirname(plotloc)):
         os.makedirs(os.path.dirname(plotloc))
-    plt.savefig(plotloc, dpi=200)
+    plt.savefig(plotloc, dpi=args.plot_dpi)
     plt.close('all')
 
 
@@ -464,6 +464,8 @@ def get_args(argv=None):
     parser.add_argument('--plot_mass_range', type=float, nargs='+',
                         help='Min and max (log) mass of plot range, default: '
                              '5.0 8.5', default=[5.0, 8.5])
+    parser.add_argument('--plot_dpi', type=int, default=200,
+                        help='DPI of plot image (default: 200)')
     parser.add_argument('--plot_width', type=float, default=9.0,
                         help='Plot width in inches (default: 9.0)')
     parser.add_argument('--plot_linewidth', type=float, default=0.2,
