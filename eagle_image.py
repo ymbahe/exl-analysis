@@ -235,7 +235,9 @@ def image_snap(isnap):
             set_trace()
         camPos = np.array([args.varpos[0]+args.varpos[3]*time_gyr,
                            args.varpos[1]+args.varpos[4]*time_gyr,
-                           args.varpos[2]+args.varpos[5]*time_gyr])*aexp_factor
+                           args.varpos[2]+args.varpos[5]*time_gyr])
+        print(camPos)
+        camPos *= aexp_factor
 
     elif args.campos is not None:
         camPos = np.array(args.campos) * aexp_factor
@@ -254,13 +256,13 @@ def image_snap(isnap):
             set_trace()
         args.cambh = args.cambh[0]
         
-    if args.cambh is not None:
+    if args.cambh is not None and camPos is None:
         camPos = hd.read_data(snapdir, 'PartType5/Coordinates',
                               read_index=args.cambh) * aexp_factor
         args.hsml = hd.read_data(snapdir, 'PartType5/SmoothingLengths',
                                  read_index=args.cambh) * aexp_factor * kernel_gamma
         
-    else:
+    elif camPos is None:
         print("Setting camera position to box centre...")
         camPos = np.array([0.5, 0.5, 0.5]) * boxsize * aexp_factor
 
@@ -292,7 +294,7 @@ def image_snap(isnap):
     datapt = getattr(data, pt_names[args.ptype])    
 
     pos = datapt.coordinates.value * aexp_factor
-
+    
     # Next bit does periodic wrapping
     def flip_dim(idim):
         full_box_phys = boxsize * aexp_factor
@@ -321,7 +323,7 @@ def image_snap(isnap):
         bh_maccr = (hd.read_data(snapdir, 'PartType5/AccretionRates')
                     * mdot_factor)
         bh_id = hd.read_data(snapdir, 'PartType5/ParticleIDs')
-        bh_nseed = hd.read_data(snapdir, 'PartType5/CumulativeNumberSeeds')
+        bh_nseed = hd.read_data(snapdir, 'PartType5/CumulativeNumberOfSeeds')
         bh_ft = hd.read_data(snapdir, 'PartType5/FormationScaleFactors')
         print(f"Max BH mass: {np.log10(np.max(bh_mass))}")
 
