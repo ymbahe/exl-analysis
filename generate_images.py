@@ -14,7 +14,8 @@ from pdb import set_trace
 
 # Required fields from the unified BH catalogue
 bh_props_list = ['ParticleIDs', 'Haloes', 'Halo_MStar', 'Halo_M200c',
-                 'Halo_SFR', 'HaloTypes', 'Redshifts', 'SubgridMasses']
+                 'Halo_SFR', 'HaloTypes', 'Redshifts', 'SubgridMasses',
+                 'DMO_Haloes']
 
 # List of image half-sizes, in pMpc
 ap_list = [1.5, 0.3, 0.03, 0.003]
@@ -297,13 +298,21 @@ def write_bh_header(writer, ibh, isnap, bh_data, vr_bhdata, args):
     writer.write('<a href="index.html">Back to front page</a>')
 
     writer.write(f'<h2>BH-ID {ibh} '
-                 f'[ID={bh_data["ParticleIDs"][ibh]}]</h2>\n')
+                 f'[ID={bh_data["ParticleIDs"][ibh]}]\n')
+    writer.write(f'&nbsp; &nbsp; &nbsp; '
+                 f' - Halo {bh_data["Haloes"][ibh]}, DM-Halo '
+                 f'{bh_data["DMO_Haloes"][ibh]}</h2>')
 
     writer.write(f'<h3> ')
     for ixsnap in args.snapshots:
-        writer.write(f'<a href="index_bh-{ibh}_snap-{ixsnap}.html">'
+        if ixsnap == isnap:
+            link_class = 'self_link'
+        else:
+            link_class = 'other_link'
+        writer.write(f'<div class="{link_class}">'
+                     f'<a href="index_bh-{ibh}_snap-{ixsnap}.html">'
                      f'Snap {ixsnap} (z = {args.snaps_zred[ixsnap]:.1f}) '
-                     f'</a> &nbsp; &nbsp; &nbsp;')
+                     f'</a></div> &nbsp; &nbsp; &nbsp;')
     writer.write(f'</h3>')
     
     if vr_bhdata is not None:
