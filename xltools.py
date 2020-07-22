@@ -98,7 +98,11 @@ def connect_to_galaxies(bpart_ids, vr_file, combined_vr=True,
             print(f"Extracting extra quantity '{iextra[0]}' --> "
                   f"'{iextra[1]}'")
             vr_quant = hd.read_data(vr_main_file, iextra[0])
-            gal_props[iextra[1]] = np.zeros(num_bhs) + np.nan
+            dtype = vr_quant.dtype
+            nan_value = np.nan
+            if issubclass(dtype.type, np.integer):
+                nan_value = -999999
+            gal_props[iextra[1]] = np.zeros(num_bhs, dtype) + nan_value
             gal_props[iextra[1]][ind_in_halo] = vr_quant[vr_halo[ind_in_halo]]
 
     return gal_props
@@ -246,6 +250,7 @@ def lookup_bh_data(bh_data_file, bh_props_list, selection_list=None,
             bh_data[idata] = data
             num_bhs = data.shape[0]
 
+            
     # Now find the list of BHs we are interested in (based on z=0 props)
 
     if bh_list is not None:
