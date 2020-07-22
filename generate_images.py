@@ -106,7 +106,7 @@ def main():
             ["HaloTypes", '==', 10]
         ]
         bh_list = None
-            
+
     bh_data, bh_sel = xl.lookup_bh_data(args.wdir + args.bh_data_file,
                                         bh_props_list, select_list)
     if bh_list is None:
@@ -116,7 +116,6 @@ def main():
         print("No black holes selected, aborting.")
         return
 
-    
     # Generate the script to auto-generate all the required images
     generate_image_script(args, bh_list)
 
@@ -193,7 +192,7 @@ def generate_website(args, bh_data, bh_list):
 
         # Write HTML opening lines
         writer.write('<!DOCTYPE html>\n<html>\n<head>\n'
-                     '  <link rel="stylesheet" href="style.css">\n'
+                     '  <link rel="stylesheet" href="../style.css">\n'
                      '</head><body>')
 
         # Actual BH-specific sites are written one per snapshot.
@@ -292,16 +291,18 @@ def write_bh_header(writer, ibh, isnap, bh_data, vr_bhdata, args):
 
     # Write HTML opening lines
     writer.write('<!DOCTYPE html>\n<html>\n<head>\n'
-                 '  <link rel="stylesheet" href="style_bh.css">\n'
+                 '  <link rel="stylesheet" href="../style_bh.css">\n'
                  '</head><body>')
 
     writer.write('<a href="index.html">Back to front page</a>')
 
     writer.write(f'<h2>BH-ID {ibh} '
                  f'[ID={bh_data["ParticleIDs"][ibh]}]\n')
-    writer.write(f'&nbsp; &nbsp; &nbsp; '
-                 f' - Halo {bh_data["Haloes"][ibh]}, DM-Halo '
-                 f'{bh_data["DMO_Haloes"][ibh]}</h2>')
+    idm = int(bh_data["DMO_Haloes"][ibh])
+    writer.write(f'&nbsp; '
+                 f' &mdash; &nbsp; Halo {bh_data["Haloes"][ibh]}, '
+                 f'<a href=../DM_Haloes/dm-halo-{idm}.html>DM-Halo '
+                 f'{idm}</a></h2>')
 
     writer.write(f'<h3> ')
     for ixsnap in args.snapshots:
@@ -310,7 +311,7 @@ def write_bh_header(writer, ibh, isnap, bh_data, vr_bhdata, args):
         else:
             link_class = 'other_link'
         writer.write(f'<div class="{link_class}">'
-                     f'<a href="index_bh-{ibh}_snap-{ixsnap}.html">'
+                     f'<a class="{link_class}" href="index_bh-{ibh}_snap-{ixsnap}.html">'
                      f'Snap {ixsnap} (z = {args.snaps_zred[ixsnap]:.1f}) '
                      f'</a></div> &nbsp; &nbsp; &nbsp;')
     writer.write(f'</h3>')
